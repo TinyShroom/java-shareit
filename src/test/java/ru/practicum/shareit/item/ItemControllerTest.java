@@ -43,7 +43,7 @@ class ItemControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .header(CUSTOM_HEADER, userId)
                 .content(content);
-        when(itemService.add(userId, mapper.readValue(content, ItemDto.class)))
+        when(itemService.create(userId, mapper.readValue(content, ItemDto.class)))
                 .thenReturn(mapper.readValue(answer, ItemDto.class));
         mockMvc.perform(mockRequest)
                 .andExpect(status().isCreated())

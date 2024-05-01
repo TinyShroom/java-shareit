@@ -1,27 +1,26 @@
 package ru.practicum.shareit.user.dao;
 
-import org.springframework.stereotype.Component;
+import org.springframework.stereotype.Repository;
 import ru.practicum.shareit.exception.DuplicateEmailException;
 import ru.practicum.shareit.user.model.User;
-import ru.practicum.shareit.user.utils.UserUpdater;
 
 import java.util.*;
 
-@Component
-public class InMemoryUserStorage implements UserStorage {
+@Repository
+public class InMemoryUserRepository implements UserRepository {
 
     private final Map<Long, User> users;
     private final Set<String> emails;
 
     private long idCounter;
 
-    public InMemoryUserStorage() {
+    public InMemoryUserRepository() {
         users = new HashMap<>();
         emails = new HashSet<>();
     }
 
     @Override
-    public User add(User user) {
+    public User create(User user) {
         if (!emails.add(user.getEmail())) {
             throw new DuplicateEmailException(String.format("Email '%s' already exist", user.getEmail()));
         }
@@ -41,14 +40,14 @@ public class InMemoryUserStorage implements UserStorage {
     }
 
     @Override
-    public Optional<User> update(long id, User user) {
-        var oldUser = users.get(id);
+    public Optional<User> update(User user) {
+        var oldUser = users.get(user.getId());
         if (oldUser == null) return Optional.empty();
         if (user.getEmail() != null && !oldUser.getEmail().equals(user.getEmail()) && !emails.add(user.getEmail())) {
             throw new DuplicateEmailException(String.format("Email '%s' already exist", user.getEmail()));
         }
         emails.remove(oldUser.getEmail());
-        UserUpdater.update(oldUser, user);
+        updateUser(oldUser, user);
         emails.add(oldUser.getEmail());
         return Optional.of(oldUser);
     }
@@ -64,4 +63,14 @@ public class InMemoryUserStorage implements UserStorage {
     private long idGenerator() {
         return ++idCounter;
     }
+
+    private static void updateUser(User oldUser, User newUser) {
+        if (newUser.getName() != null) {
+            oldUser.setName(newUser.getName());
+        }
+        if (newUser.getEmail() != null) {
+            oldUser.setEmail(newUser.getEmail());
+        }
+    }
+
 }

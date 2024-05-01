@@ -43,7 +43,7 @@ class UserControllerTest {
         MockHttpServletRequestBuilder mockRequest = MockMvcRequestBuilders.post("/users")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(content);
-        when(userService.add(mapper.readValue(content, UserDto.class)))
+        when(userService.create(mapper.readValue(content, UserDto.class)))
                 .thenReturn(mapper.readValue(answer, UserDto.class));
         mockMvc.perform(mockRequest)
                 .andExpect(status().isCreated())
@@ -57,7 +57,7 @@ class UserControllerTest {
         mockRequest = MockMvcRequestBuilders.post("/users")
                 .contentType(MediaType.APPLICATION_JSON)
                 .content(content);
-        when(userService.add(mapper.readValue(content, UserDto.class)))
+        when(userService.create(mapper.readValue(content, UserDto.class)))
                 .thenReturn(mapper.readValue(answer, UserDto.class));
         mockMvc.perform(mockRequest)
                 .andExpect(status().isCreated())

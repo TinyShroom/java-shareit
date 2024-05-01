@@ -4,8 +4,8 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import ru.practicum.shareit.constraint.AddingConstraint;
-import ru.practicum.shareit.constraint.PatchConstraint;
+import ru.practicum.shareit.constraint.Create;
+import ru.practicum.shareit.constraint.Update;
 import ru.practicum.shareit.user.dto.UserDto;
 import ru.practicum.shareit.user.service.UserService;
 
@@ -23,8 +23,8 @@ public class UserController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public UserDto add(@RequestBody @Validated(AddingConstraint.class) UserDto user) {
-        return userService.add(user);
+    public UserDto create(@RequestBody @Validated(Create.class) UserDto user) {
+        return userService.create(user);
     }
 
     @GetMapping("/{id}")
@@ -38,7 +38,7 @@ public class UserController {
     }
 
     @PatchMapping("/{id}")
-    public UserDto update(@PathVariable long id, @RequestBody @Validated(PatchConstraint.class) UserDto user) {
+    public UserDto update(@PathVariable long id, @RequestBody @Validated(Update.class) UserDto user) {
         return userService.update(id, user);
     }
 

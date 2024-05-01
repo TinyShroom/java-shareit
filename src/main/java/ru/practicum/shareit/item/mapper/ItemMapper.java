@@ -2,16 +2,17 @@ package ru.practicum.shareit.item.mapper;
 
 import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.item.model.Item;
+import ru.practicum.shareit.user.model.User;
 
 import java.util.List;
 import java.util.stream.Collectors;
 
 public class ItemMapper {
 
-    public static Item dtoToItem(ItemDto itemDto, long ownerId) {
+    public static Item dtoToItem(ItemDto itemDto, User owner) {
         return Item.builder()
                 .id(itemDto.getId())
-                .ownerId(ownerId)
+                .owner(owner)
                 .name(itemDto.getName())
                 .description(itemDto.getDescription())
                 .available(itemDto.getAvailable())

@@ -6,7 +6,7 @@ import java.util.List;
 
 public interface ItemService {
 
-    ItemDto add(long userId, ItemDto item);
+    ItemDto create(long userId, ItemDto item);
 
     ItemDto findById(long id);
 
@@ -16,5 +16,5 @@ public interface ItemService {
 
     void delete(long userId, long id);
 
-    List<ItemDto> findByText(String text);
+    List<ItemDto> findBy(String text);
 }

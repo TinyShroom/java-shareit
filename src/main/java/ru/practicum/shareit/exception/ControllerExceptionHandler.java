@@ -41,6 +41,20 @@ public class ControllerExceptionHandler {
         return new ErrorDto(e.getMessage());
     }
 
+    @ResponseStatus(HttpStatus.CONFLICT)
+    @ExceptionHandler
+    public ErrorDto exceptionHandler(DuplicateEmailException e) {
+        log.info("DuplicateEmailException: {}", e.getMessage());
+        return new ErrorDto(e.getMessage());
+    }
+
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ExceptionHandler
+    public ErrorDto exceptionHandler(AccessDeniedException e) {
+        log.info("AccessDeniedException: {}", e.getMessage());
+        return new ErrorDto(e.getMessage());
+    }
+
     @ResponseStatus(HttpStatus.INTERNAL_SERVER_ERROR)
     @ExceptionHandler
     public ErrorDto exceptionHandler(Exception e) {

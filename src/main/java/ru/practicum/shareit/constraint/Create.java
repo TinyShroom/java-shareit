@@ -1,4 +1,4 @@
 package ru.practicum.shareit.constraint;
 
-public interface PatchConstraint {
+public interface Create {
 }
