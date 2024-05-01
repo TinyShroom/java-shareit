@@ -78,6 +78,7 @@ class ItemControllerTest {
                 .andExpect(status().isBadRequest())
                 .andExpect(jsonPath("$.message", is("Validation exception")));
     }
+
     @Test
     void postValidationFailAvailable() throws Exception {
         var content = "{\"name\": \"item name\",\"description\": \"item description\"}";
