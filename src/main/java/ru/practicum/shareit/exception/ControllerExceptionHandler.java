@@ -1,6 +1,7 @@
 package ru.practicum.shareit.exception;
 
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
@@ -43,8 +44,8 @@ public class ControllerExceptionHandler {
 
     @ResponseStatus(HttpStatus.CONFLICT)
     @ExceptionHandler
-    public ErrorDto exceptionHandler(DuplicateEmailException e) {
-        log.info("DuplicateEmailException: {}", e.getMessage());
+    public ErrorDto exceptionHandler(DataIntegrityViolationException e) {
+        log.info("DataIntegrityViolationException: {}", e.getMessage());
         return new ErrorDto(e.getMessage());
     }
 
@@ -52,6 +53,13 @@ public class ControllerExceptionHandler {
     @ExceptionHandler
     public ErrorDto exceptionHandler(AccessDeniedException e) {
         log.info("AccessDeniedException: {}", e.getMessage());
+        return new ErrorDto(e.getMessage());
+    }
+
+    @ResponseStatus(HttpStatus.BAD_REQUEST)
+    @ExceptionHandler
+    public ErrorDto exceptionHandler(UnknownStateException e) {
+        log.info("UnknownStateException: {}", e.getMessage());
         return new ErrorDto(e.getMessage());
     }
 

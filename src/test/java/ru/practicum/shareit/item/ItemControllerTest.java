@@ -63,7 +63,7 @@ class ItemControllerTest {
                 .content(content);
         mockMvc.perform(mockRequest)
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", is("Validation exception")));
+                .andExpect(jsonPath("$.error", is("Validation exception")));
     }
 
     @Test
@@ -76,7 +76,7 @@ class ItemControllerTest {
                 .content(content);
         mockMvc.perform(mockRequest)
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", is("Validation exception")));
+                .andExpect(jsonPath("$.error", is("Validation exception")));
     }
 
     @Test
@@ -89,6 +89,6 @@ class ItemControllerTest {
                 .content(content);
         mockMvc.perform(mockRequest)
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.message", is("Validation exception")));
+                .andExpect(jsonPath("$.error", is("Validation exception")));
     }
 }
