@@ -5,19 +5,16 @@ import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import ru.practicum.shareit.constraint.Update;
-import ru.practicum.shareit.item.dto.CommentDtoRequest;
+import ru.practicum.shareit.item.dto.CommentCreateDto;
 import ru.practicum.shareit.item.dto.CommentDtoResponse;
 import ru.practicum.shareit.item.dto.ItemDto;
-import ru.practicum.shareit.item.dto.ItemDtoResponse;
+import ru.practicum.shareit.item.dto.ItemWithBookingsDto;
 import ru.practicum.shareit.item.service.ItemService;
 import ru.practicum.shareit.logging.Logging;
 
 import javax.validation.Valid;
 import java.util.List;
 
-/**
- * TODO Sprint add-controllers.
- */
 @RestController
 @RequestMapping("/items")
 @RequiredArgsConstructor
@@ -37,13 +34,13 @@ public class ItemController {
 
     @Logging
     @GetMapping("/{id}")
-    public ItemDtoResponse getById(@RequestHeader(HEADER_USER_ID) long userId, @PathVariable long id) {
+    public ItemWithBookingsDto getById(@RequestHeader(HEADER_USER_ID) long userId, @PathVariable long id) {
         return itemService.findById(userId, id);
     }
 
     @Logging
     @GetMapping
-    public List<ItemDtoResponse> getAll(@RequestHeader(HEADER_USER_ID) long userId) {
+    public List<ItemWithBookingsDto> getAll(@RequestHeader(HEADER_USER_ID) long userId) {
         return itemService.getAll(userId);
     }
 
@@ -74,7 +71,7 @@ public class ItemController {
     @PostMapping("/{itemId}/comment")
     public CommentDtoResponse createComment(@RequestHeader(HEADER_USER_ID) long userId,
                                             @PathVariable long itemId,
-                                            @RequestBody @Valid CommentDtoRequest commentDtoRequest) {
-        return itemService.createComment(userId, itemId, commentDtoRequest);
+                                            @RequestBody @Valid CommentCreateDto commentCreateDto) {
+        return itemService.createComment(userId, itemId, commentCreateDto);
     }
 }

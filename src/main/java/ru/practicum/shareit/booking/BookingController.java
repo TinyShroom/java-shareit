@@ -4,16 +4,14 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
-import ru.practicum.shareit.booking.dto.BookingDtoRequest;
-import ru.practicum.shareit.booking.dto.BookingDtoResponse;
+import ru.practicum.shareit.booking.dto.BookingCreateDto;
+import ru.practicum.shareit.booking.dto.BookingDto;
+import ru.practicum.shareit.booking.enums.BookingState;
 import ru.practicum.shareit.booking.service.BookingService;
 import ru.practicum.shareit.logging.Logging;
 
 import java.util.List;
 
-/**
- * TODO Sprint add-bookings.
- */
 @RestController
 @RequestMapping(path = "/bookings")
 @RequiredArgsConstructor
@@ -28,40 +26,42 @@ public class BookingController {
     @Logging
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public BookingDtoResponse create(@RequestHeader(HEADER_USER_ID) Long userId,
-                                     @Validated
+    public BookingDto create(@RequestHeader(HEADER_USER_ID) Long userId,
+                             @Validated
                                      @RequestBody
-                                     BookingDtoRequest bookingDtoRequest) {
-        bookingDtoRequest.setBookerId(userId);
-        return bookingService.create(bookingDtoRequest);
+                                     BookingCreateDto bookingCreateDto) {
+        bookingCreateDto.setBookerId(userId);
+        return bookingService.create(bookingCreateDto);
     }
 
     @Logging
     @PatchMapping("/{bookingId}")
-    public BookingDtoResponse approve(@RequestHeader(HEADER_USER_ID) Long ownerId,
-                                      @PathVariable Long bookingId,
-                                      @RequestParam boolean approved) {
+    public BookingDto approve(@RequestHeader(HEADER_USER_ID) Long ownerId,
+                              @PathVariable Long bookingId,
+                              @RequestParam boolean approved) {
         return bookingService.updateStatus(bookingId, ownerId, approved);
     }
 
     @Logging
     @GetMapping("/{bookingId}")
-    public BookingDtoResponse get(@RequestHeader(HEADER_USER_ID) Long userId,
-                                  @PathVariable Long bookingId) {
+    public BookingDto get(@RequestHeader(HEADER_USER_ID) Long userId,
+                          @PathVariable Long bookingId) {
         return bookingService.findById(bookingId, userId);
     }
 
     @Logging
     @GetMapping
-    public List<BookingDtoResponse> getAllForUser(@RequestHeader(HEADER_USER_ID) Long bookerId,
-                                                  @RequestParam(defaultValue = DEFAULT_BOOKING_STATE) String state) {
-        return bookingService.findAllForUser(bookerId, state);
+    public List<BookingDto> getAllForUser(@RequestHeader(HEADER_USER_ID) Long bookerId,
+                                          @RequestParam(defaultValue = DEFAULT_BOOKING_STATE) String state) {
+        return bookingService.findAllForUser(bookerId, BookingState.parse(state)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown state: " + state)));
     }
 
     @Logging
     @GetMapping("/owner")
-    public List<BookingDtoResponse> getAllForOwner(@RequestHeader(HEADER_USER_ID) Long ownerId,
-                                                   @RequestParam(defaultValue = DEFAULT_BOOKING_STATE) String state) {
-        return bookingService.findAllForOwner(ownerId, state);
+    public List<BookingDto> getAllForOwner(@RequestHeader(HEADER_USER_ID) Long ownerId,
+                                           @RequestParam(defaultValue = DEFAULT_BOOKING_STATE) String state) {
+        return bookingService.findAllForOwner(ownerId, BookingState.parse(state)
+                .orElseThrow(() -> new IllegalArgumentException("Unknown state: " + state)));
     }
 }

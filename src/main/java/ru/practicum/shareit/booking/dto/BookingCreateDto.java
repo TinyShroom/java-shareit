@@ -10,15 +10,12 @@ import javax.validation.constraints.Future;
 import javax.validation.constraints.NotNull;
 import java.time.LocalDateTime;
 
-/**
- * TODO Sprint add-bookings.
- */
 @Data
 @Builder
 @AllArgsConstructor
 @NoArgsConstructor
 @DateRangeConstraint
-public class BookingDtoRequest {
+public class BookingCreateDto {
     private Long id;
     private Long bookerId;
     @NotNull

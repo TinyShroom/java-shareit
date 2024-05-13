@@ -12,11 +12,11 @@ import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 import ru.practicum.shareit.booking.dto.BookerDto;
-import ru.practicum.shareit.booking.dto.BookingDtoRequest;
-import ru.practicum.shareit.booking.dto.BookingDtoResponse;
-import ru.practicum.shareit.booking.dto.ItemDtoIdAndName;
+import ru.practicum.shareit.booking.dto.BookingCreateDto;
+import ru.practicum.shareit.booking.dto.BookingDto;
 import ru.practicum.shareit.booking.enums.BookingStatus;
 import ru.practicum.shareit.booking.service.BookingService;
+import ru.practicum.shareit.item.dto.ItemShortDto;
 
 import java.time.LocalDateTime;
 
@@ -47,16 +47,16 @@ class BookingControllerTest {
         var start = LocalDateTime.now().plusHours(1);
         var end = start.plusDays(1);
         var bookerId = 1L;
-        var request = BookingDtoRequest.builder()
+        var request = BookingCreateDto.builder()
                 .bookerId(bookerId)
                 .itemId(1L)
                 .start(start)
                 .end(end)
                 .build();
-        var response = BookingDtoResponse.builder()
+        var response = BookingDto.builder()
                 .id(1L)
                 .booker(new BookerDto(bookerId))
-                .item(new ItemDtoIdAndName(1L, "My drill"))
+                .item(new ItemShortDto(1L, "My drill"))
                 .start(start)
                 .end(end)
                 .status(BookingStatus.WAITING)
@@ -77,7 +77,7 @@ class BookingControllerTest {
         var start = LocalDateTime.now().plusHours(1);
         var end = start.plusDays(1);
         var bookerId = 1L;
-        var request = BookingDtoRequest.builder()
+        var request = BookingCreateDto.builder()
                 .bookerId(bookerId)
                 .itemId(1L)
                 .start(end)

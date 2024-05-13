@@ -1,17 +1,17 @@
 package ru.practicum.shareit.booking.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import ru.practicum.shareit.booking.dao.BookingRepository;
-import ru.practicum.shareit.booking.dto.BookingDtoRequest;
-import ru.practicum.shareit.booking.dto.BookingDtoResponse;
+import ru.practicum.shareit.booking.dto.BookingCreateDto;
+import ru.practicum.shareit.booking.dto.BookingDto;
 import ru.practicum.shareit.booking.enums.BookingState;
 import ru.practicum.shareit.booking.enums.BookingStatus;
 import ru.practicum.shareit.booking.mapper.BookingMapper;
 import ru.practicum.shareit.booking.model.Booking;
 import ru.practicum.shareit.exception.AccessDeniedException;
 import ru.practicum.shareit.exception.NotFoundException;
-import ru.practicum.shareit.exception.UnknownStateException;
 import ru.practicum.shareit.item.dao.ItemRepository;
 import ru.practicum.shareit.user.dao.UserRepository;
 
@@ -29,32 +29,32 @@ public class BookingServiceImpl implements BookingService {
     private final BookingMapper bookingMapper;
 
     @Override
-    public BookingDtoResponse create(BookingDtoRequest bookingDtoRequest) {
-        var user = userRepository.findById(bookingDtoRequest.getBookerId())
+    public BookingDto create(BookingCreateDto bookingCreateDto) {
+        var user = userRepository.findById(bookingCreateDto.getBookerId())
                 .orElseThrow(() -> new NotFoundException(String.format("user with id == %d not found",
-                        bookingDtoRequest.getBookerId())));
-        var item = itemRepository.findById(bookingDtoRequest.getItemId())
+                        bookingCreateDto.getBookerId())));
+        var item = itemRepository.findById(bookingCreateDto.getItemId())
                 .orElseThrow(() -> new NotFoundException(String.format("item with id == %d not found",
-                        bookingDtoRequest.getItemId())));
+                        bookingCreateDto.getItemId())));
         if (!item.getAvailable()) {
                 throw new AccessDeniedException(String.format("item with id == %d not available", item.getId()));
         }
-        if (item.getOwner().getId().equals(bookingDtoRequest.getBookerId())) {
+        if (item.getOwner().getId().equals(bookingCreateDto.getBookerId())) {
             throw new NotFoundException("booker cannot be a owner");
         }
-        var booking = bookingMapper.dtoToBooking(bookingDtoRequest, user, item);
+        var booking = bookingMapper.dtoToBooking(bookingCreateDto, user, item);
         return bookingMapper.bookingToDtoResponse(bookingRepository.save(booking));
     }
 
     @Override
-    public BookingDtoResponse findById(long id, Long userId) {
+    public BookingDto findById(long id, Long userId) {
         var booking = bookingRepository.findByIdAndUserId(id, userId)
                 .orElseThrow(() -> new NotFoundException(String.format("booking with id == %d not found", id)));
         return bookingMapper.bookingToDtoResponse(booking);
     }
 
     @Override
-    public BookingDtoResponse updateStatus(long id, Long ownerId, boolean approved) {
+    public BookingDto updateStatus(long id, Long ownerId, boolean approved) {
         var booking = bookingRepository.findByIdAndOwnerId(id, ownerId)
                 .orElseThrow(() -> new NotFoundException(String.format("booking with id == %d not found", id)));
         if (BookingStatus.APPROVED.equals(booking.getStatus())) {
@@ -66,70 +66,67 @@ public class BookingServiceImpl implements BookingService {
     }
 
     @Override
-    public List<BookingDtoResponse> findAllForUser(Long bookerId, String state) {
-        BookingState bookingState;
-        try {
-            bookingState = BookingState.valueOf(state);
-        } catch (Exception e) {
-            throw new UnknownStateException("Unknown state: " + state);
-        }
+    public List<BookingDto> findAllForUser(Long bookerId, BookingState state) {
         userRepository.findById(bookerId)
                 .orElseThrow(() -> new NotFoundException(String.format("user with id == %d not found", bookerId)));
 
         List<Booking> result = Collections.emptyList();
-        switch (bookingState) {
+        switch (state) {
             case ALL:
-                result = bookingRepository.findAllByBooker(bookerId);
+                result = bookingRepository.findAllByBookerId(bookerId, Sort.by("start").descending());
                 break;
             case CURRENT:
                 result = bookingRepository.findAllByBookerCurrent(bookerId, LocalDateTime.now());
                 break;
             case REJECTED:
-                result = bookingRepository.findAllByBookerAndStatus(bookerId, BookingStatus.REJECTED);
+                result = bookingRepository.findAllByBookerIdAndStatus(bookerId, BookingStatus.REJECTED,
+                        Sort.by("start").descending());
                 break;
             case WAITING:
-                result = bookingRepository.findAllByBookerAndStatus(bookerId, BookingStatus.WAITING);
+                result = bookingRepository.findAllByBookerIdAndStatus(bookerId, BookingStatus.WAITING,
+                        Sort.by("start").descending());
                 break;
             case FUTURE:
-                result = bookingRepository.findAllByBookerFuture(bookerId, LocalDateTime.now());
+                result = bookingRepository.findAllByBookerIdAndStartAfter(bookerId, LocalDateTime.now(),
+                        Sort.by("start").descending());
                 break;
             case PAST:
-                result = bookingRepository.findAllByBookerPast(bookerId, LocalDateTime.now());
+                result = bookingRepository.findAllByBookerIdAndEndBefore(bookerId, LocalDateTime.now(),
+                        Sort.by("start").descending());
                 break;
         }
         return bookingMapper.bookingsToDtoResponse(result);
     }
 
     @Override
-    public List<BookingDtoResponse> findAllForOwner(Long ownerId, String state) {
-        BookingState bookingState;
-        try {
-            bookingState = BookingState.valueOf(state);
-        } catch (Exception e) {
-            throw new UnknownStateException("Unknown state: " + state);
-        }
+    public List<BookingDto> findAllForOwner(Long ownerId, BookingState state) {
         userRepository.findById(ownerId)
                 .orElseThrow(() -> new NotFoundException(String.format("user with id == %d not found", ownerId)));
 
         List<Booking> result = Collections.emptyList();
-        switch (bookingState) {
+        switch (state) {
             case ALL:
-                result = bookingRepository.findAllByOwner(ownerId);
+                result = bookingRepository.findAllByItemOwnerId(ownerId, Sort.by("start").descending());
                 break;
             case CURRENT:
-                result = bookingRepository.findAllByOwnerCurrent(ownerId, LocalDateTime.now());
+                result = bookingRepository.findAllByItemOwnerCurrent(ownerId, LocalDateTime.now());
                 break;
             case REJECTED:
-                result = bookingRepository.findAllByOwnerAndStatus(ownerId, BookingStatus.REJECTED);
+                result = bookingRepository.findAllByItemOwnerIdAndStatus(ownerId, BookingStatus.REJECTED,
+                        Sort.by("start").descending());
+
                 break;
             case WAITING:
-                result = bookingRepository.findAllByOwnerAndStatus(ownerId, BookingStatus.WAITING);
+                result = bookingRepository.findAllByItemOwnerIdAndStatus(ownerId, BookingStatus.WAITING,
+                        Sort.by("start").descending());
                 break;
             case FUTURE:
-                result = bookingRepository.findAllByOwnerFuture(ownerId, LocalDateTime.now());
+                result = bookingRepository.findAllByItemOwnerIdAndStartAfter(ownerId, LocalDateTime.now(),
+                        Sort.by("start").descending());
                 break;
             case PAST:
-                result = bookingRepository.findAllByOwnerPast(ownerId, LocalDateTime.now());
+                result = bookingRepository.findAllByItemOwnerIdAndEndBefore(ownerId, LocalDateTime.now(),
+                        Sort.by("start").descending());
                 break;
         }
         return bookingMapper.bookingsToDtoResponse(result);

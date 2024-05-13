@@ -58,8 +58,8 @@ public class ControllerExceptionHandler {
 
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ExceptionHandler
-    public ErrorDto exceptionHandler(UnknownStateException e) {
-        log.info("UnknownStateException: {}", e.getMessage());
+    public ErrorDto exceptionHandler(IllegalArgumentException e) {
+        log.info("IllegalArgumentException: {}", e.getMessage());
         return new ErrorDto(e.getMessage());
     }
 

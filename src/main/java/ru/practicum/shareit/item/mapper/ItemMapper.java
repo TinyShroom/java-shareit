@@ -1,10 +1,10 @@
 package ru.practicum.shareit.item.mapper;
 
 import org.mapstruct.*;
-import ru.practicum.shareit.booking.dto.BookingDtoShort;
+import ru.practicum.shareit.booking.model.BookingShort;
 import ru.practicum.shareit.item.dto.CommentDtoResponse;
 import ru.practicum.shareit.item.dto.ItemDto;
-import ru.practicum.shareit.item.dto.ItemDtoResponse;
+import ru.practicum.shareit.item.dto.ItemWithBookingsDto;
 import ru.practicum.shareit.item.model.Item;
 import ru.practicum.shareit.user.model.User;
 
@@ -28,12 +28,12 @@ public interface ItemMapper {
     @Mapping(target = "id", source = "item.id")
     @Mapping(target = "lastBooking", source = "last")
     @Mapping(target = "nextBooking", source = "next")
-    ItemDtoResponse itemsToDtoResponse(Item item, BookingDtoShort last, BookingDtoShort next);
+    ItemWithBookingsDto itemsToDtoResponse(Item item, BookingShort last, BookingShort next);
 
     @Mapping(target = "id", source = "item.id")
     @Mapping(target = "lastBooking", source = "last")
     @Mapping(target = "nextBooking", source = "next")
-    ItemDtoResponse itemsToDtoResponse(Item item, BookingDtoShort last, BookingDtoShort next, List<CommentDtoResponse> comments);
+    ItemWithBookingsDto itemsToDtoResponse(Item item, BookingShort last, BookingShort next, List<CommentDtoResponse> comments);
 
-    ItemDtoResponse itemsToDtoResponse(Item item, List<CommentDtoResponse> comments);
+    ItemWithBookingsDto itemsToDtoResponse(Item item, List<CommentDtoResponse> comments);
 }

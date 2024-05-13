@@ -27,6 +27,5 @@ CREATE TABLE IF NOT EXISTS comments (
   author_id bigint NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   item_id bigint NOT NULL REFERENCES items(id) ON DELETE CASCADE,
   text varchar(1000) NOT NULL,
-  created timestamp NOT NULL,
-  CONSTRAINT one_per_user UNIQUE (author_id, item_id)
+  created timestamp NOT NULL
 );

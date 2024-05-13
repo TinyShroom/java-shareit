@@ -2,7 +2,7 @@ package ru.practicum.shareit.item.mapper;
 
 import org.mapstruct.Mapper;
 import org.mapstruct.Mapping;
-import ru.practicum.shareit.item.dto.CommentDtoRequest;
+import ru.practicum.shareit.item.dto.CommentCreateDto;
 import ru.practicum.shareit.item.dto.CommentDtoResponse;
 import ru.practicum.shareit.item.model.Comment;
 import ru.practicum.shareit.item.model.CommentShort;
@@ -15,7 +15,7 @@ import java.time.LocalDateTime;
 public interface CommentMapper {
 
     @Mapping(target = "id", ignore = true)
-    Comment dtoToComment(CommentDtoRequest commentDto, User author, Item item, LocalDateTime created);
+    Comment dtoToComment(CommentCreateDto commentDto, User author, Item item, LocalDateTime created);
 
     @Mapping(target = "authorName", source = "comment.author.name")
     CommentDtoResponse commentToDto(Comment comment);

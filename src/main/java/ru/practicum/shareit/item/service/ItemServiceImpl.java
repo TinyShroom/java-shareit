@@ -3,27 +3,23 @@ package ru.practicum.shareit.item.service;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import ru.practicum.shareit.booking.dao.BookingRepository;
-import ru.practicum.shareit.booking.dto.BookingDtoShort;
 import ru.practicum.shareit.booking.enums.BookingStatus;
+import ru.practicum.shareit.booking.model.BookingShort;
 import ru.practicum.shareit.exception.AccessDeniedException;
 import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.item.dao.CommentRepository;
 import ru.practicum.shareit.item.dao.ItemRepository;
-import ru.practicum.shareit.item.dto.CommentDtoRequest;
+import ru.practicum.shareit.item.dto.CommentCreateDto;
 import ru.practicum.shareit.item.dto.CommentDtoResponse;
 import ru.practicum.shareit.item.dto.ItemDto;
-import ru.practicum.shareit.item.dto.ItemDtoResponse;
+import ru.practicum.shareit.item.dto.ItemWithBookingsDto;
 import ru.practicum.shareit.item.mapper.CommentMapper;
 import ru.practicum.shareit.item.mapper.ItemMapper;
 import ru.practicum.shareit.item.model.CommentShort;
 import ru.practicum.shareit.user.dao.UserRepository;
 
 import java.time.LocalDateTime;
-import java.util.Collections;
-import java.util.Comparator;
-import java.util.List;
-import java.util.Objects;
-import java.util.function.Function;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -46,7 +42,7 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
-    public ItemDtoResponse findById(long userId, long id) {
+    public ItemWithBookingsDto findById(long userId, long id) {
         var item = itemRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException(String.format("item with id == %d not found", id)));
         var comments = commentRepository.findAllByItemId(id)
@@ -60,41 +56,29 @@ public class ItemServiceImpl implements ItemService {
         var dateTime = LocalDateTime.now();
         var last = bookings.stream()
                 .filter(b -> dateTime.isAfter(b.getStart()))
-                .max(Comparator.comparing(BookingDtoShort::getStart))
+                .max(Comparator.comparing(BookingShort::getStart))
                 .orElse(null);
         var next = bookings.stream()
                 .filter(b -> dateTime.isBefore(b.getStart()))
-                .min(Comparator.comparing(BookingDtoShort::getStart))
+                .min(Comparator.comparing(BookingShort::getStart))
                 .orElse(null);
         return itemMapper.itemsToDtoResponse(item, last, next, comments);
     }
 
     @Override
-    public List<ItemDtoResponse> getAll(long userId) {
+    public List<ItemWithBookingsDto> getAll(long userId) {
         var items = itemRepository.findAllByOwnerIdOrderById(userId);
         var dateTime = LocalDateTime.now();
-        var bookings = bookingRepository.findAllBookingsShortByOwner(userId)
-                .stream()
-                .collect(Collectors.groupingBy(BookingDtoShort::getItemId,
-                        Collectors.mapping(Function.identity(), Collectors.toList())));
-
-        var lastBookings = bookings.values()
-                .stream()
-                .map(s -> s.stream()
-                        .filter(b -> dateTime.isAfter(b.getStart()))
-                        .max(Comparator.comparing(BookingDtoShort::getStart))
-                        .orElse(null))
-                .filter(Objects::nonNull)
-                .collect(Collectors.toMap(BookingDtoShort::getItemId, Function.identity()));
-
-        var nextBookings = bookings.values()
-                .stream()
-                .map(s -> s.stream()
-                        .filter(b -> dateTime.isBefore(b.getStart()))
-                        .min(Comparator.comparing(BookingDtoShort::getStart))
-                        .orElse(null))
-                .filter(Objects::nonNull)
-                .collect(Collectors.toMap(BookingDtoShort::getItemId, Function.identity()));
+        var bookings = bookingRepository.findAllBookingsShortByOwner(userId);
+        Map<Long, BookingShort> lastBookings = new HashMap<>();
+        Map<Long, BookingShort> nextBookings = new HashMap<>();
+        for (var booking: bookings) {
+            if (dateTime.isAfter(booking.getStart())) {
+                lastBookings.put(booking.getItemId(), getLastBooking(lastBookings.get(booking.getItemId()), booking));
+            } else {
+                nextBookings.put(booking.getItemId(), getNextBooking(nextBookings.get(booking.getItemId()), booking));
+            }
+        }
 
         var comments = commentRepository.findAllByOwnerId(userId)
                 .stream()
@@ -141,7 +125,7 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
-    public CommentDtoResponse createComment(long userId, long itemId, CommentDtoRequest commentDtoRequest) {
+    public CommentDtoResponse createComment(long userId, long itemId, CommentCreateDto commentCreateDto) {
         var author = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException(String.format("user with id == %d not found", userId)));
         var item = itemRepository.findById(itemId)
@@ -151,7 +135,25 @@ public class ItemServiceImpl implements ItemService {
                 BookingStatus.APPROVED, dateTime).isEmpty()) {
             throw new AccessDeniedException("you cannot create a review without booking");
         }
-        var comment = commentRepository.save(commentMapper.dtoToComment(commentDtoRequest, author, item, dateTime));
+        var comment = commentRepository.save(commentMapper.dtoToComment(commentCreateDto, author, item, dateTime));
         return commentMapper.commentToDto(comment);
+    }
+
+    private BookingShort getLastBooking(BookingShort last, BookingShort current) {
+        if (last == null) return current;
+        if (current == null) return last;
+        if (current.getStart().isAfter(last.getStart())) {
+            return current;
+        }
+        return last;
+    }
+
+    private BookingShort getNextBooking(BookingShort last, BookingShort current) {
+        if (last == null) return current;
+        if (current == null) return last;
+        if (current.getStart().isBefore(last.getStart())) {
+            return current;
+        }
+        return last;
     }
 }
