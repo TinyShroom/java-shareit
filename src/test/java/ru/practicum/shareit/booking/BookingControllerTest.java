@@ -48,7 +48,6 @@ class BookingControllerTest {
         var end = start.plusDays(1);
         var bookerId = 1L;
         var request = BookingCreateDto.builder()
-                .bookerId(bookerId)
                 .itemId(1L)
                 .start(start)
                 .end(end)
@@ -65,7 +64,7 @@ class BookingControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .header(CUSTOM_HEADER, bookerId)
                 .content(mapper.writeValueAsString(request));
-        when(bookingService.create(request))
+        when(bookingService.create(bookerId, request))
                 .thenReturn(response);
         mockMvc.perform(mockRequest)
                 .andExpect(status().isCreated())
@@ -78,7 +77,6 @@ class BookingControllerTest {
         var end = start.plusDays(1);
         var bookerId = 1L;
         var request = BookingCreateDto.builder()
-                .bookerId(bookerId)
                 .itemId(1L)
                 .start(end)
                 .end(start)
