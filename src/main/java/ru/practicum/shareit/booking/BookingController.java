@@ -26,32 +26,31 @@ public class BookingController {
     @Logging
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    public BookingDto create(@RequestHeader(HEADER_USER_ID) Long userId,
+    public BookingDto create(@RequestHeader(HEADER_USER_ID) long userId,
                              @Validated
-                                     @RequestBody
-                                     BookingCreateDto bookingCreateDto) {
-        bookingCreateDto.setBookerId(userId);
-        return bookingService.create(bookingCreateDto);
+                             @RequestBody
+                             BookingCreateDto bookingCreateDto) {
+        return bookingService.create(userId, bookingCreateDto);
     }
 
     @Logging
     @PatchMapping("/{bookingId}")
-    public BookingDto approve(@RequestHeader(HEADER_USER_ID) Long ownerId,
-                              @PathVariable Long bookingId,
+    public BookingDto approve(@RequestHeader(HEADER_USER_ID) long ownerId,
+                              @PathVariable long bookingId,
                               @RequestParam boolean approved) {
         return bookingService.updateStatus(bookingId, ownerId, approved);
     }
 
     @Logging
     @GetMapping("/{bookingId}")
-    public BookingDto get(@RequestHeader(HEADER_USER_ID) Long userId,
-                          @PathVariable Long bookingId) {
+    public BookingDto get(@RequestHeader(HEADER_USER_ID) long userId,
+                          @PathVariable long bookingId) {
         return bookingService.findById(bookingId, userId);
     }
 
     @Logging
     @GetMapping
-    public List<BookingDto> getAllForUser(@RequestHeader(HEADER_USER_ID) Long bookerId,
+    public List<BookingDto> getAllForUser(@RequestHeader(HEADER_USER_ID) long bookerId,
                                           @RequestParam(defaultValue = DEFAULT_BOOKING_STATE) String state) {
         return bookingService.findAllForUser(bookerId, BookingState.parse(state)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown state: " + state)));
@@ -59,7 +58,7 @@ public class BookingController {
 
     @Logging
     @GetMapping("/owner")
-    public List<BookingDto> getAllForOwner(@RequestHeader(HEADER_USER_ID) Long ownerId,
+    public List<BookingDto> getAllForOwner(@RequestHeader(HEADER_USER_ID) long ownerId,
                                            @RequestParam(defaultValue = DEFAULT_BOOKING_STATE) String state) {
         return bookingService.findAllForOwner(ownerId, BookingState.parse(state)
                 .orElseThrow(() -> new IllegalArgumentException("Unknown state: " + state)));

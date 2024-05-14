@@ -17,7 +17,6 @@ import java.time.LocalDateTime;
 @DateRangeConstraint
 public class BookingCreateDto {
     private Long id;
-    private Long bookerId;
     @NotNull
     private Long itemId;
     @NotNull

@@ -1,6 +1,7 @@
 package ru.practicum.shareit.item.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import ru.practicum.shareit.booking.dao.BookingRepository;
 import ru.practicum.shareit.booking.enums.BookingStatus;
@@ -69,12 +70,12 @@ public class ItemServiceImpl implements ItemService {
     public List<ItemWithBookingsDto> getAll(long userId) {
         var items = itemRepository.findAllByOwnerIdOrderById(userId);
         var dateTime = LocalDateTime.now();
-        var bookings = bookingRepository.findAllBookingsShortByOwner(userId);
+        var bookings = bookingRepository.findAllBookingsShortByOwner(userId, Sort.by("start").descending());
         Map<Long, BookingShort> lastBookings = new HashMap<>();
         Map<Long, BookingShort> nextBookings = new HashMap<>();
         for (var booking: bookings) {
             if (dateTime.isAfter(booking.getStart())) {
-                lastBookings.put(booking.getItemId(), getLastBooking(lastBookings.get(booking.getItemId()), booking));
+                lastBookings.putIfAbsent(booking.getItemId(), booking);
             } else {
                 nextBookings.put(booking.getItemId(), getNextBooking(nextBookings.get(booking.getItemId()), booking));
             }
@@ -139,21 +140,12 @@ public class ItemServiceImpl implements ItemService {
         return commentMapper.commentToDto(comment);
     }
 
-    private BookingShort getLastBooking(BookingShort last, BookingShort current) {
-        if (last == null) return current;
-        if (current == null) return last;
-        if (current.getStart().isAfter(last.getStart())) {
+    private BookingShort getNextBooking(BookingShort next, BookingShort current) {
+        if (next == null) return current;
+        if (current == null) return next;
+        if (current.getStart().isBefore(next.getStart())) {
             return current;
         }
-        return last;
-    }
-
-    private BookingShort getNextBooking(BookingShort last, BookingShort current) {
-        if (last == null) return current;
-        if (current == null) return last;
-        if (current.getStart().isBefore(last.getStart())) {
-            return current;
-        }
-        return last;
+        return next;
     }
 }

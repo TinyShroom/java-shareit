@@ -13,6 +13,9 @@ import java.time.LocalDateTime;
 @Getter
 @Setter
 @Table(name = "booking")
+@NamedEntityGraph(name = "booking-graph", attributeNodes = {
+        @NamedAttributeNode("item"),
+        @NamedAttributeNode("booker")})
 public class Booking {
 
     @Id

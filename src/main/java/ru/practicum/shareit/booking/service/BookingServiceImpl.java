@@ -29,17 +29,17 @@ public class BookingServiceImpl implements BookingService {
     private final BookingMapper bookingMapper;
 
     @Override
-    public BookingDto create(BookingCreateDto bookingCreateDto) {
-        var user = userRepository.findById(bookingCreateDto.getBookerId())
+    public BookingDto create(long userId, BookingCreateDto bookingCreateDto) {
+        var user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException(String.format("user with id == %d not found",
-                        bookingCreateDto.getBookerId())));
+                        userId)));
         var item = itemRepository.findById(bookingCreateDto.getItemId())
                 .orElseThrow(() -> new NotFoundException(String.format("item with id == %d not found",
                         bookingCreateDto.getItemId())));
         if (!item.getAvailable()) {
                 throw new AccessDeniedException(String.format("item with id == %d not available", item.getId()));
         }
-        if (item.getOwner().getId().equals(bookingCreateDto.getBookerId())) {
+        if (item.getOwner().getId().equals(userId)) {
             throw new NotFoundException("booker cannot be a owner");
         }
         var booking = bookingMapper.dtoToBooking(bookingCreateDto, user, item);
@@ -69,30 +69,26 @@ public class BookingServiceImpl implements BookingService {
     public List<BookingDto> findAllForUser(Long bookerId, BookingState state) {
         userRepository.findById(bookerId)
                 .orElseThrow(() -> new NotFoundException(String.format("user with id == %d not found", bookerId)));
-
+        var sort = Sort.by("start").descending();
         List<Booking> result = Collections.emptyList();
         switch (state) {
             case ALL:
-                result = bookingRepository.findAllByBookerId(bookerId, Sort.by("start").descending());
+                result = bookingRepository.findAllByBookerId(bookerId, sort);
                 break;
             case CURRENT:
-                result = bookingRepository.findAllByBookerCurrent(bookerId, LocalDateTime.now());
+                result = bookingRepository.findAllByBookerCurrent(bookerId, LocalDateTime.now(), sort);
                 break;
             case REJECTED:
-                result = bookingRepository.findAllByBookerIdAndStatus(bookerId, BookingStatus.REJECTED,
-                        Sort.by("start").descending());
+                result = bookingRepository.findAllByBookerIdAndStatus(bookerId, BookingStatus.REJECTED, sort);
                 break;
             case WAITING:
-                result = bookingRepository.findAllByBookerIdAndStatus(bookerId, BookingStatus.WAITING,
-                        Sort.by("start").descending());
+                result = bookingRepository.findAllByBookerIdAndStatus(bookerId, BookingStatus.WAITING, sort);
                 break;
             case FUTURE:
-                result = bookingRepository.findAllByBookerIdAndStartAfter(bookerId, LocalDateTime.now(),
-                        Sort.by("start").descending());
+                result = bookingRepository.findAllByBookerIdAndStartAfter(bookerId, LocalDateTime.now(), sort);
                 break;
             case PAST:
-                result = bookingRepository.findAllByBookerIdAndEndBefore(bookerId, LocalDateTime.now(),
-                        Sort.by("start").descending());
+                result = bookingRepository.findAllByBookerIdAndEndBefore(bookerId, LocalDateTime.now(), sort);
                 break;
         }
         return bookingMapper.bookingsToDtoResponse(result);
@@ -104,29 +100,26 @@ public class BookingServiceImpl implements BookingService {
                 .orElseThrow(() -> new NotFoundException(String.format("user with id == %d not found", ownerId)));
 
         List<Booking> result = Collections.emptyList();
+        var sort = Sort.by("start").descending();
         switch (state) {
             case ALL:
-                result = bookingRepository.findAllByItemOwnerId(ownerId, Sort.by("start").descending());
+                result = bookingRepository.findAllByItemOwnerId(ownerId, sort);
                 break;
             case CURRENT:
-                result = bookingRepository.findAllByItemOwnerCurrent(ownerId, LocalDateTime.now());
+                result = bookingRepository.findAllByItemOwnerCurrent(ownerId, LocalDateTime.now(), sort);
                 break;
             case REJECTED:
-                result = bookingRepository.findAllByItemOwnerIdAndStatus(ownerId, BookingStatus.REJECTED,
-                        Sort.by("start").descending());
+                result = bookingRepository.findAllByItemOwnerIdAndStatus(ownerId, BookingStatus.REJECTED, sort);
 
                 break;
             case WAITING:
-                result = bookingRepository.findAllByItemOwnerIdAndStatus(ownerId, BookingStatus.WAITING,
-                        Sort.by("start").descending());
+                result = bookingRepository.findAllByItemOwnerIdAndStatus(ownerId, BookingStatus.WAITING, sort);
                 break;
             case FUTURE:
-                result = bookingRepository.findAllByItemOwnerIdAndStartAfter(ownerId, LocalDateTime.now(),
-                        Sort.by("start").descending());
+                result = bookingRepository.findAllByItemOwnerIdAndStartAfter(ownerId, LocalDateTime.now(), sort);
                 break;
             case PAST:
-                result = bookingRepository.findAllByItemOwnerIdAndEndBefore(ownerId, LocalDateTime.now(),
-                        Sort.by("start").descending());
+                result = bookingRepository.findAllByItemOwnerIdAndEndBefore(ownerId, LocalDateTime.now(), sort);
                 break;
         }
         return bookingMapper.bookingsToDtoResponse(result);
