@@ -14,35 +14,37 @@ import java.util.List;
 public class UserServiceImpl implements UserService {
 
     private final UserRepository userRepository;
+    private final UserMapper userMapper;
 
     @Override
     public UserDto create(UserDto user) {
-        return UserMapper.userToDto(userRepository.create(UserMapper.dtoToUser(user)));
+        return userMapper.userToDto(userRepository.save(userMapper.dtoToUser(user)));
     }
 
     @Override
     public UserDto findById(Long id) {
         var user = userRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException(String.format("user with id == %d not found", id)));
-        return UserMapper.userToDto(user);
+        return userMapper.userToDto(user);
     }
 
     @Override
     public List<UserDto> getAll() {
-        return UserMapper.usersToDto(userRepository.getAll());
+        return userMapper.usersToDto(userRepository.findAll());
     }
 
     @Override
     public UserDto update(long id, UserDto userDto) {
-        userDto.setId(id);
-        var user = userRepository.update(UserMapper.dtoToUser(userDto))
+        var oldUser = userRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException(String.format("user with id == %d not found", id)));
-        return UserMapper.userToDto(user);
+        userDto.setId(id);
+        userMapper.dtoToUser(oldUser, userDto);
+        var user = userRepository.save(oldUser);
+        return userMapper.userToDto(user);
     }
 
     @Override
     public void delete(Long id) {
-        userRepository.delete(id)
-                .orElseThrow(() -> new NotFoundException(String.format("user with id == %d not found", id)));
+        userRepository.deleteById(id);
     }
 }
