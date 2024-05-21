@@ -25,20 +25,13 @@ public class ControllerExceptionHandler {
     @ExceptionHandler
     public ErrorDto exceptionHandler(MethodArgumentNotValidException e) {
         log.info("MethodArgumentNotValidException: {}", e.getMessage());
-        return new ErrorDto("Validation exception");
+        return new ErrorDto(ErrorMessages.VALIDATION_EXCEPTION.getMessage());
     }
 
     @ResponseStatus(HttpStatus.NOT_FOUND)
     @ExceptionHandler
     public ErrorDto exceptionHandler(NotFoundException e) {
         log.info("NotFoundException: {}", e.getMessage());
-        return new ErrorDto(e.getMessage());
-    }
-
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    @ExceptionHandler
-    public ErrorDto exceptionHandler(ConstraintException e) {
-        log.info("DatabaseConstraintException: {}", e.getMessage());
         return new ErrorDto(e.getMessage());
     }
 

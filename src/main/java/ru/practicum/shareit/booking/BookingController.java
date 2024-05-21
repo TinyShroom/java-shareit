@@ -8,10 +8,13 @@ import ru.practicum.shareit.booking.dto.BookingCreateDto;
 import ru.practicum.shareit.booking.dto.BookingDto;
 import ru.practicum.shareit.booking.enums.BookingState;
 import ru.practicum.shareit.booking.service.BookingService;
+import ru.practicum.shareit.exception.ErrorMessages;
 import ru.practicum.shareit.logging.Logging;
 
+import javax.validation.constraints.Min;
 import java.util.List;
 
+@Validated
 @RestController
 @RequestMapping(path = "/bookings")
 @RequiredArgsConstructor
@@ -51,16 +54,22 @@ public class BookingController {
     @Logging
     @GetMapping
     public List<BookingDto> getAllForUser(@RequestHeader(HEADER_USER_ID) long bookerId,
-                                          @RequestParam(defaultValue = DEFAULT_BOOKING_STATE) String state) {
+                                          @RequestParam(defaultValue = DEFAULT_BOOKING_STATE) String state,
+                                          @RequestParam(defaultValue = "0") @Min(0) Integer from,
+                                          @RequestParam(required = false) @Min(1) Integer size) {
         return bookingService.findAllForUser(bookerId, BookingState.parse(state)
-                .orElseThrow(() -> new IllegalArgumentException("Unknown state: " + state)));
+                .orElseThrow(() -> new IllegalArgumentException(ErrorMessages.UNKNOWN_STATE.getFormatMessage(state))),
+                from, size);
     }
 
     @Logging
     @GetMapping("/owner")
     public List<BookingDto> getAllForOwner(@RequestHeader(HEADER_USER_ID) long ownerId,
-                                           @RequestParam(defaultValue = DEFAULT_BOOKING_STATE) String state) {
+                                           @RequestParam(defaultValue = DEFAULT_BOOKING_STATE) String state,
+                                           @RequestParam(defaultValue = "0") @Min(0) Integer from,
+                                           @RequestParam(required = false) @Min(1) Integer size) {
         return bookingService.findAllForOwner(ownerId, BookingState.parse(state)
-                .orElseThrow(() -> new IllegalArgumentException("Unknown state: " + state)));
+                .orElseThrow(() -> new IllegalArgumentException(ErrorMessages.UNKNOWN_STATE.getFormatMessage(state))),
+                from, size);
     }
 }

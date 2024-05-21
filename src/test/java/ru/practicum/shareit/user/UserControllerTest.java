@@ -11,6 +11,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import ru.practicum.shareit.exception.ErrorMessages;
 import ru.practicum.shareit.user.dto.UserDto;
 import ru.practicum.shareit.user.service.UserService;
 
@@ -75,7 +76,7 @@ class UserControllerTest {
 
         mockMvc.perform(mockRequest)
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error", is("Validation exception")));
+                .andExpect(jsonPath("$.error", is(ErrorMessages.VALIDATION_EXCEPTION.getMessage())));
 
         mockRequest = MockMvcRequestBuilders.post("/users")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -83,7 +84,7 @@ class UserControllerTest {
 
         mockMvc.perform(mockRequest)
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error", is("Validation exception")));
+                .andExpect(jsonPath("$.error", is(ErrorMessages.VALIDATION_EXCEPTION.getMessage())));
 
         mockRequest = MockMvcRequestBuilders.post("/users")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -91,7 +92,7 @@ class UserControllerTest {
 
         mockMvc.perform(mockRequest)
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error", is("Validation exception")));
+                .andExpect(jsonPath("$.error", is(ErrorMessages.VALIDATION_EXCEPTION.getMessage())));
 
         mockRequest = MockMvcRequestBuilders.post("/users")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -99,7 +100,7 @@ class UserControllerTest {
 
         mockMvc.perform(mockRequest)
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error", is("Validation exception")));
+                .andExpect(jsonPath("$.error", is(ErrorMessages.VALIDATION_EXCEPTION.getMessage())));
     }
 
     @Test
@@ -144,7 +145,7 @@ class UserControllerTest {
 
         mockMvc.perform(mockRequest)
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error", is("Validation exception")));
+                .andExpect(jsonPath("$.error", is(ErrorMessages.VALIDATION_EXCEPTION.getMessage())));
 
         mockRequest = MockMvcRequestBuilders.patch("/users/1")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -152,7 +153,7 @@ class UserControllerTest {
 
         mockMvc.perform(mockRequest)
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error", is("Validation exception")));
+                .andExpect(jsonPath("$.error", is(ErrorMessages.VALIDATION_EXCEPTION.getMessage())));
 
         mockRequest = MockMvcRequestBuilders.patch("/users/1")
                 .contentType(MediaType.APPLICATION_JSON)
@@ -160,6 +161,6 @@ class UserControllerTest {
 
         mockMvc.perform(mockRequest)
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error", is("Validation exception")));
+                .andExpect(jsonPath("$.error", is(ErrorMessages.VALIDATION_EXCEPTION.getMessage())));
     }
 }

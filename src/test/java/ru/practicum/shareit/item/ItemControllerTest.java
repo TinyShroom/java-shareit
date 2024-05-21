@@ -10,6 +10,7 @@ import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
+import ru.practicum.shareit.exception.ErrorMessages;
 import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.item.service.ItemService;
 
@@ -63,7 +64,7 @@ class ItemControllerTest {
                 .content(content);
         mockMvc.perform(mockRequest)
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error", is("Validation exception")));
+                .andExpect(jsonPath("$.error", is(ErrorMessages.VALIDATION_EXCEPTION.getMessage())));
     }
 
     @Test
@@ -76,7 +77,7 @@ class ItemControllerTest {
                 .content(content);
         mockMvc.perform(mockRequest)
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error", is("Validation exception")));
+                .andExpect(jsonPath("$.error", is(ErrorMessages.VALIDATION_EXCEPTION.getMessage())));
     }
 
     @Test
@@ -89,6 +90,6 @@ class ItemControllerTest {
                 .content(content);
         mockMvc.perform(mockRequest)
                 .andExpect(status().isBadRequest())
-                .andExpect(jsonPath("$.error", is("Validation exception")));
+                .andExpect(jsonPath("$.error", is(ErrorMessages.VALIDATION_EXCEPTION.getMessage())));
     }
 }

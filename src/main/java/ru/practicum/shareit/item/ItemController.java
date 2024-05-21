@@ -6,13 +6,14 @@ import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 import ru.practicum.shareit.constraint.Update;
 import ru.practicum.shareit.item.dto.CommentCreateDto;
-import ru.practicum.shareit.item.dto.CommentDtoResponse;
+import ru.practicum.shareit.item.dto.CommentDto;
 import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.item.dto.ItemWithBookingsDto;
 import ru.practicum.shareit.item.service.ItemService;
 import ru.practicum.shareit.logging.Logging;
 
 import javax.validation.Valid;
+import javax.validation.constraints.Min;
 import java.util.List;
 
 @RestController
@@ -40,8 +41,10 @@ public class ItemController {
 
     @Logging
     @GetMapping
-    public List<ItemWithBookingsDto> getAll(@RequestHeader(HEADER_USER_ID) long userId) {
-        return itemService.getAll(userId);
+    public List<ItemWithBookingsDto> getAll(@RequestHeader(HEADER_USER_ID) long userId,
+                                            @RequestParam(defaultValue = "0") @Min(0) Integer from,
+                                            @RequestParam(required = false) @Min(1) Integer size) {
+        return itemService.getAll(userId, from, size);
     }
 
     @Logging
@@ -63,15 +66,17 @@ public class ItemController {
 
     @Logging
     @GetMapping("/search")
-    public List<ItemDto> search(@RequestParam String text) {
-        return itemService.search(text);
+    public List<ItemDto> search(@RequestParam String text,
+                                @RequestParam(defaultValue = "0") @Min(0) Integer from,
+                                @RequestParam(required = false) @Min(1) Integer size) {
+        return itemService.search(text, from, size);
     }
 
     @Logging
     @PostMapping("/{itemId}/comment")
-    public CommentDtoResponse createComment(@RequestHeader(HEADER_USER_ID) long userId,
-                                            @PathVariable long itemId,
-                                            @RequestBody @Valid CommentCreateDto commentCreateDto) {
+    public CommentDto createComment(@RequestHeader(HEADER_USER_ID) long userId,
+                                    @PathVariable long itemId,
+                                    @RequestBody @Valid CommentCreateDto commentCreateDto) {
         return itemService.createComment(userId, itemId, commentCreateDto);
     }
 }

@@ -12,8 +12,8 @@ public interface CommentRepository extends JpaRepository<Comment, Long> {
     @Query("select new ru.practicum.shareit.item.model.CommentShort(" +
             "c.id, c.item.id, c.author.name, c.text, c.created) " +
             "from Comment c " +
-            "where c.item.owner.id = ?1")
-    List<CommentShort> findAllByOwnerId(long ownerId);
+            "where c.item.id in ?1")
+    List<CommentShort> findAllByItemIdIn(List<Long> items);
 
     @Query("select new ru.practicum.shareit.item.model.CommentShort(" +
             "c.id, c.item.id, c.author.name, c.text, c.created) " +
