@@ -58,7 +58,7 @@ class BookingRepositoryTest {
 
         items = new ArrayList<>();
         bookings = new ArrayList<>();
-        var currentTime = getCurrentTime().minusDays(1);
+        var currentTime = getCurrentTime().minusDays(1).minusMinutes(30);
         for (var i = 0; i < 6; ++i) {
             var start = currentTime.plusDays(i / 2);
 

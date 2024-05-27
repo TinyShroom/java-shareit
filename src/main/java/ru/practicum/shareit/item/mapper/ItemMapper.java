@@ -32,11 +32,6 @@ public interface ItemMapper {
     @Mapping(target = "id", source = "item.id")
     @Mapping(target = "lastBooking", source = "last")
     @Mapping(target = "nextBooking", source = "next")
-    ItemWithBookingsDto itemsToDtoResponse(Item item, BookingShort last, BookingShort next);
-
-    @Mapping(target = "id", source = "item.id")
-    @Mapping(target = "lastBooking", source = "last")
-    @Mapping(target = "nextBooking", source = "next")
     ItemWithBookingsDto itemsToDtoResponse(Item item, BookingShort last, BookingShort next, List<CommentDto> comments);
 
     ItemWithBookingsDto itemsToDtoResponse(Item item, List<CommentDto> comments);
