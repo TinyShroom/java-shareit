@@ -262,7 +262,7 @@ class ItemServiceImplTest {
                 .end(end)
                 .build());
         bookingService.updateStatus(bookingLast.getId(), owner.getId(), true);
-        var sleepTime = ChronoUnit.MILLIS.between(LocalDateTime.now(), end);
+        var sleepTime = ChronoUnit.MILLIS.between(LocalDateTime.now(), end) + 1;
         Thread.sleep(sleepTime);
         var comment = itemService.createComment(user.getId(), item.getId(), CommentCreateDto.builder()
                 .text("First comment")
@@ -303,7 +303,7 @@ class ItemServiceImplTest {
                 .end(start.plusDays(1))
                 .build());
         bookingService.updateStatus(bookingAccepted.getId(), owner.getId(), true);
-        var sleepTime = ChronoUnit.MILLIS.between(LocalDateTime.now(), end);
+        var sleepTime = ChronoUnit.MILLIS.between(LocalDateTime.now(), end) + 1;
         Thread.sleep(sleepTime);
         var exception = assertThrows(AccessDeniedException.class,
                 () -> itemService.createComment(user.getId(), itemRejected.getId(), CommentCreateDto.builder()
@@ -376,7 +376,7 @@ class ItemServiceImplTest {
                 .end(end)
                 .build());
         bookingService.updateStatus(bookingLast.getId(), owner.getId(), true);
-        var sleepTime = ChronoUnit.MILLIS.between(LocalDateTime.now(), end);
+        var sleepTime = ChronoUnit.MILLIS.between(LocalDateTime.now(), end) + 1;
         Thread.sleep(sleepTime);
         itemService.createComment(user.getId(), item.getId(), CommentCreateDto.builder()
                 .text("First comment")
@@ -457,7 +457,7 @@ class ItemServiceImplTest {
                 .end(end)
                 .build());
         bookingService.updateStatus(bookingLast.getId(), owner.getId(), true);
-        var sleepTime = ChronoUnit.MILLIS.between(LocalDateTime.now(), end);
+        var sleepTime = ChronoUnit.MILLIS.between(LocalDateTime.now(), end) + 1;
         Thread.sleep(sleepTime);
         itemService.createComment(user.getId(), item.getId(), CommentCreateDto.builder()
                 .text("First comment")

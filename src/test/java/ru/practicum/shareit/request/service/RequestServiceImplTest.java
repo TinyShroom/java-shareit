@@ -197,10 +197,7 @@ class RequestServiceImplTest {
     }
 
     @Test
-    void findAllOk() {
-        var requestCreateDto = RequestCreateDto.builder()
-                .description("rq description")
-                .build();
+    void findAllOk() throws InterruptedException {
         var owner = userService.create(ownerDto);
         var user = userService.create(userDto);
 
@@ -209,9 +206,15 @@ class RequestServiceImplTest {
         var result = requestService.findAll(owner.getId(), from, size);
         assertThat(result, hasSize(0));
 
+        var requestCreateDto = RequestCreateDto.builder()
+                .description("rq description")
+                .build();
         List<RequestDto> requests = new ArrayList<>();
         requests.add(requestService.create(user.getId(), requestCreateDto));
-        requestCreateDto.setDescription("new description");
+        Thread.sleep(1);
+        requestCreateDto = RequestCreateDto.builder()
+                .description("new description")
+                .build();
         requests.add(requestService.create(user.getId(), requestCreateDto));
 
         requests.sort(Comparator.comparing(RequestDto::getCreated).reversed());
@@ -226,7 +229,7 @@ class RequestServiceImplTest {
 
         assertThat(result, hasSize(2));
         assertThat(result.get(0).getId(), equalTo(requests.get(0).getId()));
-        assertThat(result.get(0).getDescription(), equalTo(requestCreateDto.getDescription()));
+        assertThat(result.get(0).getDescription(), equalTo(requests.get(0).getDescription()));
         assertThat(result.get(0).getCreated(), equalTo(requests.get(0).getCreated()));
         assertThat(result.get(0).getItems(), hasSize(items.size()));
         assertThat(result.get(1).getId(), equalTo(requests.get(1).getId()));
