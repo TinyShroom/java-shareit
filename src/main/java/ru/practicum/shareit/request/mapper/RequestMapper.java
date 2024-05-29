@@ -16,9 +16,9 @@ import java.util.List;
 public interface RequestMapper {
 
     @Mapping(target = "id", ignore = true)
-    Request dtoToRequest(RequestCreateDto requestCreateDto, User user, LocalDateTime created);
+    Request toModel(RequestCreateDto requestCreateDto, User user, LocalDateTime created);
 
-    RequestDto requestToDto(Request request);
+    RequestDto toDto(Request request);
 
-    RequestWithItemsDto requestToDto(Request request, List<ItemWithRequestDto> items);
+    RequestWithItemsDto toRequestWithItemsDto(Request request, List<ItemWithRequestDto> items);
 }

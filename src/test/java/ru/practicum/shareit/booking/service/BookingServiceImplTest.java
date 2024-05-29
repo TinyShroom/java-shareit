@@ -1,28 +1,27 @@
 package ru.practicum.shareit.booking.service;
 
 import lombok.RequiredArgsConstructor;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.test.annotation.DirtiesContext;
 import ru.practicum.shareit.booking.dto.BookingCreateDto;
 import ru.practicum.shareit.booking.dto.BookingDto;
 import ru.practicum.shareit.booking.enums.BookingState;
 import ru.practicum.shareit.booking.enums.BookingStatus;
+import ru.practicum.shareit.booking.mapper.BookingMapper;
 import ru.practicum.shareit.booking.model.Booking;
 import ru.practicum.shareit.exception.AccessDeniedException;
 import ru.practicum.shareit.exception.ErrorMessages;
 import ru.practicum.shareit.exception.NotFoundException;
-import ru.practicum.shareit.item.dto.ItemDto;
-import ru.practicum.shareit.item.service.ItemService;
-import ru.practicum.shareit.user.dto.UserDto;
-import ru.practicum.shareit.user.service.UserService;
+import ru.practicum.shareit.util.PageRequestWithOffset;
 
 import javax.persistence.EntityManager;
 import javax.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.stream.Collectors;
@@ -33,476 +32,552 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Transactional
-@SpringBootTest(
-        properties = {"db.url=jdbc:h2:mem:test;MODE=PostgreSQL", "db.driver=org.h2.Driver"},
-        webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class BookingServiceImplTest {
 
     private final BookingService bookingService;
-    private final UserService userService;
-    private final ItemService itemService;
-
-    private UserDto bookerDto;
-
-    private UserDto ownerDto;
-
-    private UserDto userDto;
-
-    private ItemDto itemCreateDto;
-
+    private final BookingMapper bookingMapper;
     private final EntityManager em;
 
-    @BeforeEach
-    public void setUp() {
-        bookerDto = UserDto.builder()
-                .name("bookername")
-                .email("booker@mail.com")
-                .build();
+    private final long ownerId = 1;
+    private final long bookerId = 2;
+    private final long userId = 3;
+    private final long unknownUserId = 99999;
 
-        ownerDto = UserDto.builder()
-                .name("ownername")
-                .email("owner@mail.com")
-                .build();
+    private final long itemIdFirst = 1;
+    private final long unknownItemId = 99999;
 
-        userDto = UserDto.builder()
-                .name("username")
-                .email("user@mail.com")
-                .build();
-
-        itemCreateDto = ItemDto.builder()
-                .name("item")
-                .description("item_description")
-                .available(true)
-                .build();
-    }
+    private final long unknownBookingId = 99999;
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void createOk() {
-        var start = LocalDateTime.now().plusHours(1);
-        var owner = userService.create(ownerDto);
-        var booker = userService.create(bookerDto);
-        var item = itemService.create(owner.getId(), itemCreateDto);
+        var start = LocalDateTime.now().plusMonths(1);
         var bookingCreateDto = BookingCreateDto.builder()
-                .itemId(item.getId())
+                .itemId(itemIdFirst)
                 .start(start)
                 .end(start.plusDays(1))
                 .build();
-        var bookingDto = bookingService.create(booker.getId(), bookingCreateDto);
+        var bookingDto = bookingService.create(bookerId, bookingCreateDto);
         var query = em.createQuery("select b from Booking b where b.id = :id", Booking.class);
-        var request = query.setParameter("id", bookingDto.getId()).getSingleResult();
+        var result = query.setParameter("id", bookingDto.getId()).getSingleResult();
 
-        assertThat(request.getId(), equalTo(bookingDto.getId()));
-        assertThat(request.getStatus(), equalTo(bookingDto.getStatus()));
-        assertThat(request.getBooker().getId(), equalTo(booker.getId()));
-        assertThat(request.getItem().getId(), equalTo(item.getId()));
-        assertThat(request.getStart(), equalTo(start));
-        assertThat(request.getEnd(), equalTo(bookingDto.getEnd()));
+        assertThat(result.getId(), equalTo(bookingDto.getId()));
+        assertThat(result.getStatus(), equalTo(bookingDto.getStatus()));
+        assertThat(result.getBooker().getId(), equalTo(bookerId));
+        assertThat(result.getItem().getId(), equalTo(itemIdFirst));
+        assertThat(result.getStart(), equalTo(start));
+        assertThat(result.getEnd(), equalTo(bookingDto.getEnd()));
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void createUnknownBookerFail() {
-        var start = LocalDateTime.now().plusHours(1);
-        var owner = userService.create(ownerDto);
-        var unknownBookerId = owner.getId() + 1;
-        var item = itemService.create(owner.getId(), itemCreateDto);
+        var start = LocalDateTime.now().plusMonths(1);
         var bookingCreateDto = BookingCreateDto.builder()
-                .itemId(item.getId())
+                .itemId(itemIdFirst)
                 .start(start)
                 .end(start.plusDays(1))
                 .build();
         var exception = assertThrows(NotFoundException.class,
-                () -> bookingService.create(unknownBookerId, bookingCreateDto));
-        assertThat(exception.getMessage(), equalTo(ErrorMessages.USER_NOT_FOUND.getFormatMessage(unknownBookerId)));
+                () -> bookingService.create(unknownUserId, bookingCreateDto));
+        assertThat(exception.getMessage(), equalTo(ErrorMessages.USER_NOT_FOUND.getFormatMessage(unknownUserId)));
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void createUnknownItemFail() {
-        var start = LocalDateTime.now().plusHours(1);
-        var booker = userService.create(bookerDto);
-        var unknownItemId = 1L;
+        var start = LocalDateTime.now().plusMonths(1);
         var bookingCreateDto = BookingCreateDto.builder()
                 .itemId(unknownItemId)
                 .start(start)
                 .end(start.plusDays(1))
                 .build();
         var exception = assertThrows(NotFoundException.class,
-                () -> bookingService.create(booker.getId(), bookingCreateDto));
+                () -> bookingService.create(bookerId, bookingCreateDto));
         assertThat(exception.getMessage(), equalTo(ErrorMessages.ITEM_NOT_FOUND.getFormatMessage(unknownItemId)));
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void createBookerIsOwnerFail() {
-        var start = LocalDateTime.now().plusHours(1);
-        var owner = userService.create(ownerDto);
-        var item = itemService.create(owner.getId(), itemCreateDto);
+        var start = LocalDateTime.now().plusMonths(1);
         var bookingCreateDto = BookingCreateDto.builder()
-                .itemId(item.getId())
+                .itemId(itemIdFirst)
                 .start(start)
                 .end(start.plusDays(1))
                 .build();
         var exception = assertThrows(NotFoundException.class,
-                () -> bookingService.create(owner.getId(), bookingCreateDto));
+                () -> bookingService.create(ownerId, bookingCreateDto));
         assertThat(exception.getMessage(), equalTo(ErrorMessages.BOOKER_CANNOT_BE_OWNER.getMessage()));
     }
 
     @Test
     public void findByIdOk() {
-        var start = LocalDateTime.now().plusHours(1);
-        var owner = userService.create(ownerDto);
-        var booker = userService.create(bookerDto);
-        var item = itemService.create(owner.getId(), itemCreateDto);
-        var bookingCreateDto = BookingCreateDto.builder()
-                .itemId(item.getId())
-                .start(start)
-                .end(start.plusDays(1))
-                .build();
-        var bookingDto = bookingService.create(booker.getId(), bookingCreateDto);
-        var result = bookingService.findById(bookingDto.getId(), booker.getId());
-        assertThat(result.getId(), equalTo(bookingDto.getId()));
-        assertThat(result.getStatus(), equalTo(bookingDto.getStatus()));
-        assertThat(result.getBooker().getId(), equalTo(booker.getId()));
-        assertThat(result.getItem().getId(), equalTo(item.getId()));
-        assertThat(result.getStart(), equalTo(start));
-        assertThat(result.getEnd(), equalTo(bookingDto.getEnd()));
+        var result = em.createQuery("select b from Booking b", Booking.class)
+                .getResultStream()
+                .findAny()
+                .get();
+        var bookings = bookingService.findById(result.getId(), bookerId);
+        assertThat(bookings.getId(), equalTo(result.getId()));
+        assertThat(bookings.getStatus(), equalTo(result.getStatus()));
+        assertThat(bookings.getBooker().getId(), equalTo(result.getBooker().getId()));
+        assertThat(bookings.getBooker().getId(), equalTo(bookerId));
+        assertThat(bookings.getItem().getId(), equalTo(result.getItem().getId()));
+        assertThat(bookings.getStart(), equalTo(result.getStart()));
+        assertThat(bookings.getEnd(), equalTo(result.getEnd()));
 
-        result = bookingService.findById(bookingDto.getId(), owner.getId());
-        assertThat(result.getId(), equalTo(bookingDto.getId()));
-        assertThat(result.getStatus(), equalTo(bookingDto.getStatus()));
-        assertThat(result.getBooker().getId(), equalTo(booker.getId()));
-        assertThat(result.getItem().getId(), equalTo(item.getId()));
-        assertThat(result.getStart(), equalTo(start));
-        assertThat(result.getEnd(), equalTo(bookingDto.getEnd()));
+        bookings = bookingService.findById(result.getId(), ownerId);
+        assertThat(bookings.getId(), equalTo(result.getId()));
+        assertThat(bookings.getStatus(), equalTo(result.getStatus()));
+        assertThat(bookings.getBooker().getId(), equalTo(result.getBooker().getId()));
+        assertThat(bookings.getItem().getId(), equalTo(result.getItem().getId()));
+        assertThat(bookings.getStart(), equalTo(result.getStart()));
+        assertThat(bookings.getEnd(), equalTo(result.getEnd()));
     }
 
     @Test
     public void findByIdUnknownUserFail() {
-        var start = LocalDateTime.now().plusHours(1);
-        var owner = userService.create(ownerDto);
-        var booker = userService.create(bookerDto);
-        var user = userService.create(userDto);
-        var item = itemService.create(owner.getId(), itemCreateDto);
-        var bookingCreateDto = BookingCreateDto.builder()
-                .itemId(item.getId())
-                .start(start)
-                .end(start.plusDays(1))
-                .build();
-        var bookingDto = bookingService.create(booker.getId(), bookingCreateDto);
-        var exception = assertThrows(NotFoundException.class,
-                () -> bookingService.findById(bookingDto.getId(), user.getId()));
-        assertThat(exception.getMessage(),
-                equalTo(ErrorMessages.BOOKING_NOT_FOUND.getFormatMessage(bookingDto.getId())));
+        var bookingId = em.createQuery("select b from Booking b", Booking.class)
+                .getResultStream()
+                .findAny()
+                .get().getId();
 
-        var unknownBookingId = bookingDto.getId() + 1;
+        var exception = assertThrows(NotFoundException.class,
+                () -> bookingService.findById(bookingId, userId));
+        assertThat(exception.getMessage(),
+                equalTo(ErrorMessages.BOOKING_NOT_FOUND.getFormatMessage(bookingId)));
+
         exception = assertThrows(NotFoundException.class,
-                () -> bookingService.findById(unknownBookingId, owner.getId()));
+                () -> bookingService.findById(unknownBookingId, ownerId));
         assertThat(exception.getMessage(),
                 equalTo(ErrorMessages.BOOKING_NOT_FOUND.getFormatMessage(unknownBookingId)));
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void updateStatusOk() {
-        var start = LocalDateTime.now().plusHours(1);
-        var owner = userService.create(ownerDto);
-        var booker = userService.create(bookerDto);
-        var item = itemService.create(owner.getId(), itemCreateDto);
-        var bookingCreateDto = BookingCreateDto.builder()
-                .itemId(item.getId())
-                .start(start)
-                .end(start.plusDays(1))
-                .build();
-        var bookingDto = bookingService.create(booker.getId(), bookingCreateDto);
-        var updatedBooking = bookingService.updateStatus(bookingDto.getId(), owner.getId(), false);
+        var query = em.createQuery("select b from Booking b where b.status = :id", Booking.class);
+        var result = query.setParameter("id", BookingStatus.WAITING)
+                .getResultList()
+                .stream()
+                .findAny()
+                .get();
+        var updatedBooking = bookingService.updateStatus(result.getId(), ownerId, false);
         assertThat(updatedBooking.getStatus(), equalTo(BookingStatus.REJECTED));
 
-        updatedBooking = bookingService.updateStatus(bookingDto.getId(), owner.getId(), true);
+        updatedBooking = bookingService.updateStatus(result.getId(), ownerId, true);
         assertThat(updatedBooking.getStatus(), equalTo(BookingStatus.APPROVED));
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void updateStatusNotFoundFail() {
-        var start = LocalDateTime.now().plusHours(1);
-        var owner = userService.create(ownerDto);
-        var booker = userService.create(bookerDto);
-        var item = itemService.create(owner.getId(), itemCreateDto);
-        var bookingCreateDto = BookingCreateDto.builder()
-                .itemId(item.getId())
-                .start(start)
-                .end(start.plusDays(1))
-                .build();
-        var bookingDto = bookingService.create(booker.getId(), bookingCreateDto);
+        var query = em.createQuery("select b from Booking b where b.status = :id", Booking.class);
+        var result = query.setParameter("id", BookingStatus.WAITING)
+                .getResultList()
+                .stream()
+                .findAny()
+                .get();
         var exception = assertThrows(NotFoundException.class,
-                () -> bookingService.updateStatus(bookingDto.getId(), booker.getId(), false));
+                () -> bookingService.updateStatus(result.getId(), bookerId, false));
         assertThat(exception.getMessage(),
-                equalTo(ErrorMessages.BOOKING_NOT_FOUND.getFormatMessage(bookingDto.getId())));
-        var unknownBookingId = bookingDto.getId() + 1;
+                equalTo(ErrorMessages.BOOKING_NOT_FOUND.getFormatMessage(result.getId())));
         exception = assertThrows(NotFoundException.class,
-                () -> bookingService.updateStatus(unknownBookingId, owner.getId(), false));
+                () -> bookingService.updateStatus(unknownBookingId, ownerId, false));
         assertThat(exception.getMessage(),
                 equalTo(ErrorMessages.BOOKING_NOT_FOUND.getFormatMessage(unknownBookingId)));
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void updateStatusAlreadyApprovedFail() {
-        var start = LocalDateTime.now().plusHours(1);
-        var owner = userService.create(ownerDto);
-        var booker = userService.create(bookerDto);
-        var item = itemService.create(owner.getId(), itemCreateDto);
-        var bookingCreateDto = BookingCreateDto.builder()
-                .itemId(item.getId())
-                .start(start)
-                .end(start.plusDays(1))
-                .build();
-        var bookingDto = bookingService.create(booker.getId(), bookingCreateDto);
-        bookingService.updateStatus(bookingDto.getId(), owner.getId(), true);
+        var query = em.createQuery("select b from Booking b where b.status = :id", Booking.class);
+        var result = query.setParameter("id", BookingStatus.WAITING)
+                .getResultList()
+                .stream()
+                .findAny()
+                .get();
+        bookingService.updateStatus(result.getId(), ownerId, true);
         var exception = assertThrows(AccessDeniedException.class,
-                () -> bookingService.updateStatus(bookingDto.getId(), owner.getId(), false));
+                () -> bookingService.updateStatus(result.getId(), ownerId, false));
         assertThat(exception.getMessage(),
                 equalTo(ErrorMessages.STATUS_APPROVED.getMessage()));
     }
 
     @Test
-    public void findAllForUserOk() {
-        var owner = userService.create(ownerDto);
-        var booker = userService.create(bookerDto);
-        List<ItemDto> items = new ArrayList<>();
-        for (var i = 0; i < 2; ++i) {
-            items.add(itemService.create(owner.getId(), itemCreateDto));
-        }
-        var currentDate = getCurrentTime();
-        var past = currentDate.minusDays(1).minusMinutes(30);
-        List<BookingDto> bookings = new ArrayList<>();
-        for (var i = 0; i < 3; ++i) {
-            var start = past.plusDays(i);
-            for (var j = 0; j < items.size(); ++j) {
-                var bookingCreateDto = BookingCreateDto.builder()
-                        .itemId(items.get(j).getId())
-                        .start(start.plusSeconds(j))
-                        .end(start.plusHours(1).plusSeconds(j))
-                        .build();
-                var booking = bookingService.create(booker.getId(), bookingCreateDto);
-                if (j % 2 == 0) {
-                    bookings.add(booking);
-                } else {
-                    bookings.add(bookingService.updateStatus(booking.getId(), owner.getId(), false));
-                }
-            }
-        }
+    public void findAllForUserAllOk() {
+        var bookings = getBookingsForUser();
+
+        var from = 0;
+        var size = 100;
         var bookingToCompare = bookings.stream()
                 .sorted(Comparator.comparing(BookingDto::getStart).reversed())
                 .collect(Collectors.toList());
-        var result = bookingService.findAllForUser(booker.getId(), BookingState.ALL, 0, null);
+        Pageable pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        var result = bookingService.findAllForUser(bookerId, BookingState.ALL, pageable);
         assertThat(result, hasSize(bookingToCompare.size()));
-        var resultSize = result.size();
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get(0).getId()));
-        assertThat(result.get(resultSize - 1).getId(), equalTo(bookingToCompare.get(resultSize - 1).getId()));
-
-        var from = 2;
-        var size = 2;
-        result = bookingService.findAllForUser(booker.getId(), BookingState.ALL, from, size);
-        assertThat(result, hasSize(2));
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get((from / size) * size).getId()));
-        assertThat(result.get(1).getId(), equalTo(bookingToCompare.get((from / size) * size + 1).getId()));
-
-        bookingToCompare = bookings.stream()
-                .filter(b -> b.getStart().isBefore(getCurrentTime()) && b.getEnd().isAfter(getCurrentTime()))
-                .sorted(Comparator.comparing(BookingDto::getStart).reversed())
-                .collect(Collectors.toList());
-        result = bookingService.findAllForUser(booker.getId(), BookingState.CURRENT, 0, null);
-        assertThat(result, hasSize(bookingToCompare.size()));
-        resultSize = result.size();
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get(0).getId()));
-        assertThat(result.get(resultSize - 1).getId(), equalTo(bookingToCompare.get(resultSize - 1).getId()));
-
-        from = 0;
-        size = 1;
-        result = bookingService.findAllForUser(booker.getId(), BookingState.CURRENT, from, size);
-        assertThat(result, hasSize(1));
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get((from / size) * size).getId()));
-
-        bookingToCompare = bookings.stream()
-                .filter(b -> b.getStatus().equals(BookingStatus.REJECTED))
-                .sorted(Comparator.comparing(BookingDto::getStart).reversed())
-                .collect(Collectors.toList());
-        result = bookingService.findAllForUser(booker.getId(), BookingState.REJECTED, 0, null);
-        assertThat(result, hasSize(bookingToCompare.size()));
-        resultSize = result.size();
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get(0).getId()));
-        assertThat(result.get(resultSize - 1).getId(), equalTo(bookingToCompare.get(resultSize - 1).getId()));
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
 
         from = 2;
         size = 2;
-        result = bookingService.findAllForUser(booker.getId(), BookingState.REJECTED, from, size);
-        assertThat(result, hasSize(1));
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get((from / size) * size).getId()));
-
-        bookingToCompare = bookings.stream()
-                .filter(b -> b.getStatus().equals(BookingStatus.WAITING))
-                .sorted(Comparator.comparing(BookingDto::getStart).reversed())
+        bookingToCompare = bookingToCompare.stream()
+                .skip(from / size * size)
+                .limit(size)
                 .collect(Collectors.toList());
-        result = bookingService.findAllForUser(booker.getId(), BookingState.WAITING, 0, null);
+        pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        result = bookingService.findAllForUser(bookerId, BookingState.ALL, pageable);
         assertThat(result, hasSize(bookingToCompare.size()));
-        resultSize = result.size();
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get(0).getId()));
-        assertThat(result.get(resultSize - 1).getId(), equalTo(bookingToCompare.get(resultSize - 1).getId()));
-
-        result = bookingService.findAllForUser(booker.getId(), BookingState.WAITING, from, size);
-        assertThat(result, hasSize(1));
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get((from / size) * size).getId()));
-
-        bookingToCompare = bookings.stream()
-                .filter(b -> b.getStart().isAfter(getCurrentTime()))
-                .sorted(Comparator.comparing(BookingDto::getStart).reversed())
-                .collect(Collectors.toList());
-        result = bookingService.findAllForUser(booker.getId(), BookingState.FUTURE, 0, null);
-        assertThat(result, hasSize(bookingToCompare.size()));
-        resultSize = result.size();
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get(0).getId()));
-        assertThat(result.get(resultSize - 1).getId(), equalTo(bookingToCompare.get(resultSize - 1).getId()));
-
-        from = 0;
-        size = 1;
-        result = bookingService.findAllForUser(booker.getId(), BookingState.FUTURE, from, size);
-        assertThat(result, hasSize(1));
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get((from / size) * size).getId()));
-
-        bookingToCompare = bookings.stream()
-                .filter(b -> b.getEnd().isBefore(getCurrentTime()))
-                .sorted(Comparator.comparing(BookingDto::getStart).reversed())
-                .collect(Collectors.toList());
-        result = bookingService.findAllForUser(booker.getId(), BookingState.PAST, 0, null);
-        assertThat(result, hasSize(bookingToCompare.size()));
-        resultSize = result.size();
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get(0).getId()));
-        assertThat(result.get(resultSize - 1).getId(), equalTo(bookingToCompare.get(resultSize - 1).getId()));
-
-        result = bookingService.findAllForUser(booker.getId(), BookingState.PAST, from, size);
-        assertThat(result, hasSize(1));
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get((from / size) * size).getId()));
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
     }
 
     @Test
-    public void findAllForOwnerOk() {
-        var owner = userService.create(ownerDto);
-        var booker = userService.create(bookerDto);
-        List<ItemDto> items = new ArrayList<>();
-        for (var i = 0; i < 2; ++i) {
-            items.add(itemService.create(owner.getId(), itemCreateDto));
-        }
-        var currentDate = getCurrentTime();
-        var past = currentDate.minusDays(1).minusMinutes(30);
-        List<BookingDto> bookings = new ArrayList<>();
-        for (var i = 0; i < 3; ++i) {
-            var start = past.plusDays(i);
-            for (var j = 0; j < items.size(); ++j) {
-                var bookingCreateDto = BookingCreateDto.builder()
-                        .itemId(items.get(j).getId())
-                        .start(start.plusSeconds(j))
-                        .end(start.plusHours(1).plusSeconds(j))
-                        .build();
-                var booking = bookingService.create(booker.getId(), bookingCreateDto);
-                if (j % 2 == 0) {
-                    bookings.add(booking);
-                } else {
-                    bookings.add(bookingService.updateStatus(booking.getId(), owner.getId(), false));
-                }
-            }
-        }
+    public void findAllForUserCurrentOk() {
+        var bookings = getBookingsForUser();
+
+        var from = 0;
+        var size = 100;
         var bookingToCompare = bookings.stream()
-                .sorted(Comparator.comparing(BookingDto::getStart).reversed())
-                .collect(Collectors.toList());
-        var result = bookingService.findAllForOwner(owner.getId(), BookingState.ALL, 0, null);
-        assertThat(result, hasSize(bookingToCompare.size()));
-        var resultSize = result.size();
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get(0).getId()));
-        assertThat(result.get(resultSize - 1).getId(), equalTo(bookingToCompare.get(resultSize - 1).getId()));
-
-        var from = 2;
-        var size = 2;
-        result = bookingService.findAllForOwner(owner.getId(), BookingState.ALL, from, size);
-        assertThat(result, hasSize(2));
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get((from / size) * size).getId()));
-        assertThat(result.get(1).getId(), equalTo(bookingToCompare.get((from / size) * size + 1).getId()));
-
-        bookingToCompare = bookings.stream()
                 .filter(b -> b.getStart().isBefore(getCurrentTime()) && b.getEnd().isAfter(getCurrentTime()))
                 .sorted(Comparator.comparing(BookingDto::getStart).reversed())
                 .collect(Collectors.toList());
-        result = bookingService.findAllForOwner(owner.getId(), BookingState.CURRENT, 0, null);
+        Pageable pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        var result = bookingService.findAllForUser(bookerId, BookingState.CURRENT, pageable);
         assertThat(result, hasSize(bookingToCompare.size()));
-        resultSize = result.size();
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get(0).getId()));
-        assertThat(result.get(resultSize - 1).getId(), equalTo(bookingToCompare.get(resultSize - 1).getId()));
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
 
         from = 0;
         size = 1;
-        result = bookingService.findAllForOwner(owner.getId(), BookingState.CURRENT, from, size);
-        assertThat(result, hasSize(1));
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get((from / size) * size).getId()));
+        bookingToCompare = bookingToCompare.stream()
+                .skip(from / size * size)
+                .limit(size)
+                .collect(Collectors.toList());
+        pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        result = bookingService.findAllForUser(bookerId, BookingState.CURRENT, pageable);
+        assertThat(result, hasSize(bookingToCompare.size()));
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
+    }
+    @Test
+    public void findAllForUserRejectedOk() {
+        var bookings = getBookingsForUser();
 
-        bookingToCompare = bookings.stream()
+        var from = 0;
+        var size = 100;
+        var bookingToCompare = bookings.stream()
                 .filter(b -> b.getStatus().equals(BookingStatus.REJECTED))
                 .sorted(Comparator.comparing(BookingDto::getStart).reversed())
                 .collect(Collectors.toList());
-        result = bookingService.findAllForOwner(owner.getId(), BookingState.REJECTED, 0, null);
+        Pageable pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        var result = bookingService.findAllForUser(bookerId, BookingState.REJECTED, pageable);
         assertThat(result, hasSize(bookingToCompare.size()));
-        resultSize = result.size();
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get(0).getId()));
-        assertThat(result.get(resultSize - 1).getId(), equalTo(bookingToCompare.get(resultSize - 1).getId()));
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
 
         from = 2;
         size = 2;
-        result = bookingService.findAllForOwner(owner.getId(), BookingState.REJECTED, from, size);
-        assertThat(result, hasSize(1));
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get((from / size) * size).getId()));
+        bookingToCompare = bookingToCompare.stream()
+                .skip(from / size * size)
+                .limit(size)
+                .collect(Collectors.toList());
+        pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        result = bookingService.findAllForUser(bookerId, BookingState.REJECTED, pageable);
+        assertThat(result, hasSize(bookingToCompare.size()));
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
+    }
 
-        bookingToCompare = bookings.stream()
+    @Test
+    public void findAllForUserWaitingOk() {
+        var bookings = getBookingsForUser();
+
+        var from = 0;
+        var size = 100;
+        var bookingToCompare = bookings.stream()
                 .filter(b -> b.getStatus().equals(BookingStatus.WAITING))
                 .sorted(Comparator.comparing(BookingDto::getStart).reversed())
                 .collect(Collectors.toList());
-        result = bookingService.findAllForOwner(owner.getId(), BookingState.WAITING, 0, null);
+        Pageable pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        var result = bookingService.findAllForUser(bookerId, BookingState.WAITING, pageable);
         assertThat(result, hasSize(bookingToCompare.size()));
-        resultSize = result.size();
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get(0).getId()));
-        assertThat(result.get(resultSize - 1).getId(), equalTo(bookingToCompare.get(resultSize - 1).getId()));
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
 
-        result = bookingService.findAllForOwner(owner.getId(), BookingState.WAITING, from, size);
-        assertThat(result, hasSize(1));
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get((from / size) * size).getId()));
+        from = 2;
+        size = 2;
+        bookingToCompare = bookingToCompare.stream()
+                .skip(from / size * size)
+                .limit(size)
+                .collect(Collectors.toList());
+        pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        result = bookingService.findAllForUser(bookerId, BookingState.WAITING, pageable);
+        assertThat(result, hasSize(bookingToCompare.size()));
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
+    }
+    @Test
+    public void findAllForUserFutureOk() {
+        var bookings = getBookingsForUser();
 
-        bookingToCompare = bookings.stream()
+        var from = 0;
+        var size = 100;
+        var bookingToCompare = bookings.stream()
                 .filter(b -> b.getStart().isAfter(getCurrentTime()))
                 .sorted(Comparator.comparing(BookingDto::getStart).reversed())
                 .collect(Collectors.toList());
-        result = bookingService.findAllForOwner(owner.getId(), BookingState.FUTURE, 0, null);
+        Pageable pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        var result = bookingService.findAllForUser(bookerId, BookingState.FUTURE, pageable);
         assertThat(result, hasSize(bookingToCompare.size()));
-        resultSize = result.size();
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get(0).getId()));
-        assertThat(result.get(resultSize - 1).getId(), equalTo(bookingToCompare.get(resultSize - 1).getId()));
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
 
         from = 0;
         size = 1;
-        result = bookingService.findAllForOwner(owner.getId(), BookingState.FUTURE, from, size);
-        assertThat(result, hasSize(1));
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get((from / size) * size).getId()));
+        bookingToCompare = bookingToCompare.stream()
+                .skip(from / size * size)
+                .limit(size)
+                .collect(Collectors.toList());
+        pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        result = bookingService.findAllForUser(bookerId, BookingState.FUTURE, pageable);
+        assertThat(result, hasSize(bookingToCompare.size()));
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
+    }
 
-        bookingToCompare = bookings.stream()
+    @Test
+    public void findAllForUserPastOk() {
+        var bookings = getBookingsForUser();
+
+        var from = 0;
+        var size = 100;
+        var bookingToCompare = bookings.stream()
                 .filter(b -> b.getEnd().isBefore(getCurrentTime()))
                 .sorted(Comparator.comparing(BookingDto::getStart).reversed())
                 .collect(Collectors.toList());
-        result = bookingService.findAllForOwner(owner.getId(), BookingState.PAST, 0, null);
+        Pageable pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        var result = bookingService.findAllForUser(bookerId, BookingState.PAST, pageable);
         assertThat(result, hasSize(bookingToCompare.size()));
-        resultSize = result.size();
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get(0).getId()));
-        assertThat(result.get(resultSize - 1).getId(), equalTo(bookingToCompare.get(resultSize - 1).getId()));
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
 
-        result = bookingService.findAllForOwner(owner.getId(), BookingState.PAST, from, size);
-        assertThat(result, hasSize(1));
-        assertThat(result.get(0).getId(), equalTo(bookingToCompare.get((from / size) * size).getId()));
+        from = 0;
+        size = 1;
+        bookingToCompare = bookingToCompare.stream()
+                .skip(from / size * size)
+                .limit(size)
+                .collect(Collectors.toList());
+        pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        result = bookingService.findAllForUser(bookerId, BookingState.PAST, pageable);
+        assertThat(result, hasSize(bookingToCompare.size()));
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
+    }
+
+    @Test
+    public void findAllForOwnerAllOk() {
+        var bookings = getBookingsForOwner();
+        var from = 0;
+        var size = 100;
+        var bookingToCompare = bookings.stream()
+                .sorted(Comparator.comparing(BookingDto::getStart).reversed())
+                .collect(Collectors.toList());
+        Pageable pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        var result = bookingService.findAllForOwner(ownerId, BookingState.ALL, pageable);
+        assertThat(result, hasSize(bookingToCompare.size()));
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
+
+        from = 2;
+        size = 2;
+        bookingToCompare = bookingToCompare.stream()
+                .skip(from / size * size)
+                .limit(size)
+                .collect(Collectors.toList());
+        pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        result = bookingService.findAllForOwner(ownerId, BookingState.ALL, pageable);
+        assertThat(result, hasSize(bookingToCompare.size()));
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
+    }
+
+    @Test
+    public void findAllForOwnerCurrentOk() {
+        var bookings = getBookingsForOwner();
+        var from = 0;
+        var size = 100;
+        var bookingToCompare = bookings.stream()
+                .filter(b -> b.getStart().isBefore(getCurrentTime()) && b.getEnd().isAfter(getCurrentTime()))
+                .sorted(Comparator.comparing(BookingDto::getStart).reversed())
+                .collect(Collectors.toList());
+        Pageable pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        var result = bookingService.findAllForOwner(ownerId, BookingState.CURRENT, pageable);
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
+
+        from = 0;
+        size = 1;
+        bookingToCompare = bookingToCompare.stream()
+                .skip(from / size * size)
+                .limit(size)
+                .collect(Collectors.toList());
+        pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        result = bookingService.findAllForOwner(ownerId, BookingState.CURRENT, pageable);
+        assertThat(result, hasSize(bookingToCompare.size()));
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
+    }
+
+    @Test
+    public void findAllForOwnerRejectOk() {
+        var bookings = getBookingsForOwner();
+        var from = 0;
+        var size = 100;
+        var bookingToCompare = bookings.stream()
+                .filter(b -> b.getStatus().equals(BookingStatus.REJECTED))
+                .sorted(Comparator.comparing(BookingDto::getStart).reversed())
+                .collect(Collectors.toList());
+        Pageable pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        var result = bookingService.findAllForOwner(ownerId, BookingState.REJECTED, pageable);
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
+
+        from = 2;
+        size = 2;
+        bookingToCompare = bookingToCompare.stream()
+                .skip(from / size * size)
+                .limit(size)
+                .collect(Collectors.toList());
+        pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        result = bookingService.findAllForOwner(ownerId, BookingState.REJECTED, pageable);
+        assertThat(result, hasSize(bookingToCompare.size()));
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
+    }
+
+    @Test
+    public void findAllForOwnerWaitingOk() {
+        var bookings = getBookingsForOwner();
+        var from = 0;
+        var size = 100;
+        var bookingToCompare = bookings.stream()
+                .filter(b -> b.getStatus().equals(BookingStatus.WAITING))
+                .sorted(Comparator.comparing(BookingDto::getStart).reversed())
+                .collect(Collectors.toList());
+        Pageable pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        var result = bookingService.findAllForOwner(ownerId, BookingState.WAITING, pageable);
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
+
+        from = 2;
+        size = 2;
+        bookingToCompare = bookingToCompare.stream()
+                .skip(from / size * size)
+                .limit(size)
+                .collect(Collectors.toList());
+        pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        result = bookingService.findAllForOwner(ownerId, BookingState.WAITING, pageable);
+        assertThat(result, hasSize(bookingToCompare.size()));
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
+    }
+
+    @Test
+    public void findAllForOwnerFutureOk() {
+        var bookings = getBookingsForOwner();
+        var from = 0;
+        var size = 100;
+        var bookingToCompare = bookings.stream()
+                .filter(b -> b.getStart().isAfter(getCurrentTime()))
+                .sorted(Comparator.comparing(BookingDto::getStart).reversed())
+                .collect(Collectors.toList());
+        Pageable pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        var result = bookingService.findAllForOwner(ownerId, BookingState.FUTURE, pageable);
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
+
+        from = 0;
+        size = 1;
+        bookingToCompare = bookingToCompare.stream()
+                .skip(from / size * size)
+                .limit(size)
+                .collect(Collectors.toList());
+        pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        result = bookingService.findAllForOwner(ownerId, BookingState.FUTURE, pageable);
+        assertThat(result, hasSize(bookingToCompare.size()));
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
+    }
+
+    @Test
+    public void findAllForOwnerPastOk() {
+        var bookings = getBookingsForOwner();
+        var from = 0;
+        var size = 100;
+        var bookingToCompare = bookings.stream()
+                .filter(b -> b.getEnd().isBefore(getCurrentTime()))
+                .sorted(Comparator.comparing(BookingDto::getStart).reversed())
+                .collect(Collectors.toList());
+        Pageable pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        var result = bookingService.findAllForOwner(ownerId, BookingState.PAST, pageable);
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
+
+        from = 0;
+        size = 1;
+        bookingToCompare = bookingToCompare.stream()
+                .skip(from / size * size)
+                .limit(size)
+                .collect(Collectors.toList());
+        pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        result = bookingService.findAllForOwner(ownerId, BookingState.PAST, pageable);
+        assertThat(result, hasSize(bookingToCompare.size()));
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(bookingToCompare);
     }
 
     private LocalDateTime getCurrentTime() {
         return LocalDateTime.now().truncatedTo(ChronoUnit.MILLIS);
     }
 
+    private List<BookingDto> getBookingsForUser() {
+        var query = em.createQuery("select b from Booking b where b.booker.id = :id", Booking.class);
+        return query.setParameter("id", bookerId).getResultList().stream()
+                .map(bookingMapper::toDto)
+                .collect(Collectors.toList());
+    }
+
+    private List<BookingDto> getBookingsForOwner() {
+        var query = em.createQuery("select b from Booking b where b.item.owner.id = :id", Booking.class);
+        return query.setParameter("id", ownerId).getResultList().stream()
+                .map(bookingMapper::toDto)
+                .collect(Collectors.toList());
+    }
 }

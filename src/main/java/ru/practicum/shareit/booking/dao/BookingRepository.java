@@ -24,19 +24,10 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     Optional<Booking> findByIdAndItemOwnerId(long id, long ownerId);
 
     @EntityGraph("booking-graph")
-    List<Booking> findAllByBookerId(long bookerId, Sort sort);
-
-    @EntityGraph("booking-graph")
     List<Booking> findAllByBookerId(long bookerId, Pageable pageable);
 
     @EntityGraph("booking-graph")
-    List<Booking> findAllByBookerIdAndStatus(long bookerId, BookingStatus status, Sort sort);
-
-    @EntityGraph("booking-graph")
     List<Booking> findAllByBookerIdAndStatus(long bookerId, BookingStatus status, Pageable pageable);
-
-    @EntityGraph("booking-graph")
-    List<Booking> findAllByBookerIdAndStartAfter(long bookerId, LocalDateTime date, Sort sort);
 
     @EntityGraph("booking-graph")
     List<Booking> findAllByBookerIdAndStartAfter(long bookerId, LocalDateTime date, Pageable pageable);
@@ -44,33 +35,16 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     @Query("select b from Booking as b " +
             "where b.booker.id = ?1 and (?2 between b.start and b.end) ")
     @EntityGraph("booking-graph")
-    List<Booking> findAllByBookerCurrent(long bookerId, LocalDateTime date, Sort sort);
-
-    @Query("select b from Booking as b " +
-            "where b.booker.id = ?1 and (?2 between b.start and b.end) ")
-    @EntityGraph("booking-graph")
     List<Booking> findAllByBookerCurrent(long bookerId, LocalDateTime date, Pageable pageable);
-
-    @EntityGraph("booking-graph")
-    List<Booking> findAllByBookerIdAndEndBefore(long bookerId, LocalDateTime date, Sort sort);
 
     @EntityGraph("booking-graph")
     List<Booking> findAllByBookerIdAndEndBefore(long bookerId, LocalDateTime date, Pageable pageable);
 
     @EntityGraph("booking-graph")
-    List<Booking> findAllByItemOwnerId(long bookerId, Sort sort);
-
-    @EntityGraph("booking-graph")
     List<Booking> findAllByItemOwnerId(long bookerId, Pageable pageable);
 
     @EntityGraph("booking-graph")
-    List<Booking> findAllByItemOwnerIdAndStatus(long bookerId, BookingStatus status, Sort sort);
-
-    @EntityGraph("booking-graph")
     List<Booking> findAllByItemOwnerIdAndStatus(long bookerId, BookingStatus status, Pageable pageable);
-
-    @EntityGraph("booking-graph")
-    List<Booking> findAllByItemOwnerIdAndStartAfter(long bookerId, LocalDateTime date, Sort sort);
 
     @EntityGraph("booking-graph")
     List<Booking> findAllByItemOwnerIdAndStartAfter(long bookerId, LocalDateTime date, Pageable pageable);
@@ -78,15 +52,7 @@ public interface BookingRepository extends JpaRepository<Booking, Long> {
     @Query("select b from Booking as b " +
             "where b.item.owner.id = ?1 and (?2 between b.start and b.end) ")
     @EntityGraph("booking-graph")
-    List<Booking> findAllByItemOwnerCurrent(long bookerId, LocalDateTime date, Sort sort);
-
-    @Query("select b from Booking as b " +
-            "where b.item.owner.id = ?1 and (?2 between b.start and b.end) ")
-    @EntityGraph("booking-graph")
     List<Booking> findAllByItemOwnerCurrent(long bookerId, LocalDateTime date, Pageable pageable);
-
-    @EntityGraph("booking-graph")
-    List<Booking> findAllByItemOwnerIdAndEndBefore(long bookerId, LocalDateTime date, Sort sort);
 
     @EntityGraph("booking-graph")
     List<Booking> findAllByItemOwnerIdAndEndBefore(long bookerId, LocalDateTime date, Pageable pageable);

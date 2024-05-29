@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
@@ -15,6 +17,7 @@ import ru.practicum.shareit.request.dto.RequestCreateDto;
 import ru.practicum.shareit.request.dto.RequestDto;
 import ru.practicum.shareit.request.dto.RequestWithItemsDto;
 import ru.practicum.shareit.request.service.RequestService;
+import ru.practicum.shareit.util.PageRequestWithOffset;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -189,7 +192,8 @@ class RequestControllerTest {
         var mockRequest = MockMvcRequestBuilders.get(String.format("/requests/all?from=%d&size=%d", from, size))
                 .contentType(MediaType.APPLICATION_JSON)
                 .header(USER_ID_HEADER, userId);
-        when(requestService.findAll(userId, from, size))
+        Pageable pageable = PageRequestWithOffset.of(from, size, Sort.by("created").descending());
+        when(requestService.findAll(userId, pageable))
                 .thenReturn(answer);
         mockMvc.perform(mockRequest)
                 .andExpect(status().isOk())

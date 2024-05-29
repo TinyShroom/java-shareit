@@ -6,40 +6,47 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.dao.DataIntegrityViolationException;
+import org.springframework.test.annotation.DirtiesContext;
 import ru.practicum.shareit.exception.ErrorMessages;
 import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.user.dto.UserDto;
+import ru.practicum.shareit.user.mapper.UserMapper;
 import ru.practicum.shareit.user.model.User;
 
 import javax.persistence.EntityManager;
+import javax.persistence.NoResultException;
 import javax.transaction.Transactional;
+import java.util.stream.Collectors;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.equalTo;
-import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Transactional
-@SpringBootTest(
-        properties = {"db.url=jdbc:h2:mem:test;MODE=PostgreSQL", "db.driver=org.h2.Driver"},
-        webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class UserServiceImplTest {
 
     private final UserService userService;
+    private final UserMapper userMapper;
+    private final EntityManager em;
 
     private UserDto userDto;
-    private final EntityManager em;
+
+    private final long ownerId = 1;
+    private final long userId = 3;
+    private final long unknownUserId = 100;
 
     @BeforeEach
     public void setUp() {
         userDto = UserDto.builder()
-                .name("username")
-                .email("user@mail.com")
+                .name("user created name")
+                .email("usercreated@mail.com")
                 .build();
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void createOk() {
         var user = userService.create(userDto);
         var query = em.createQuery("select u from User u where u.id = :id", User.class);
@@ -52,94 +59,110 @@ class UserServiceImplTest {
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void createExistEmailFail() {
-        userService.create(userDto);
+        var query = em.createQuery("select u from User u where u.id = :id", User.class);
+        var result = query.setParameter("id", ownerId)
+                .getSingleResult();
+        userDto.setEmail(result.getEmail());
         assertThrows(DataIntegrityViolationException.class, () -> userService.create(userDto));
     }
 
     @Test
     public void findByIdOk() {
-        var userCreate = userService.create(userDto);
 
-        var user = userService.findById(userCreate.getId());
+        var query = em.createQuery("select u from User u where u.id = :id", User.class);
+        var result = query.setParameter("id", ownerId)
+                .getSingleResult();
 
-        assertThat(user.getId(), equalTo(userCreate.getId()));
-        assertThat(user.getName(), equalTo(userDto.getName()));
-        assertThat(user.getEmail(), equalTo(userDto.getEmail()));
+        var user = userService.findById(ownerId);
+
+        assertThat(user.getId(), equalTo(ownerId));
+        assertThat(user.getName(), equalTo(result.getName()));
+        assertThat(user.getEmail(), equalTo(result.getEmail()));
     }
 
     @Test
     public void findByIdUnknownUserIdOk() {
-        var unknownUserId = 1L;
-
         var exception = assertThrows(NotFoundException.class, () -> userService.findById(unknownUserId));
         assertThat(exception.getMessage(), equalTo(ErrorMessages.USER_NOT_FOUND.getFormatMessage(unknownUserId)));
     }
 
     @Test
     public void findAllOk() {
+
+        var query = em.createQuery("select u from User u", User.class);
+        var users = query.getResultStream()
+                .map(userMapper::userToDto)
+                .collect(Collectors.toList());
+
         var result = userService.getAll();
-        assertThat(result, hasSize(0));
+        assertThat(result.size(), equalTo(users.size()));
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(users);
 
-        var userCreate = userService.create(userDto);
-        var userSecondDto = UserDto.builder()
-                .name("second name")
-                .email("second@mail.com")
-                .build();
-        var secondCreate = userService.create(userSecondDto);
-        result = userService.getAll();
-        assertThat(result, hasSize(2));
-        assertThat(result.get(0).getId(), equalTo(userCreate.getId()));
-        assertThat(result.get(0).getName(), equalTo(userDto.getName()));
-        assertThat(result.get(0).getEmail(), equalTo(userDto.getEmail()));
-        assertThat(result.get(1).getId(), equalTo(secondCreate.getId()));
-        assertThat(result.get(1).getName(), equalTo(userSecondDto.getName()));
-        assertThat(result.get(1).getEmail(), equalTo(userSecondDto.getEmail()));
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void updateOk() {
-        var user = userService.create(userDto);
-        var newDto = UserDto.builder()
-                .name("new name")
+        var query = em.createQuery("select u from User u where u.id = :id", User.class);
+        var resultBefore = query.setParameter("id", userId)
+                .getSingleResult();
+        var newName = "new " + resultBefore.getName();
+        var newUser = UserDto.builder()
+                .name(newName)
+                .build();
+        var result = userService.update(userId, newUser);
+
+        assertThat(result.getId(), equalTo(userId));
+        assertThat(result.getName(), equalTo(newName));
+        assertThat(result.getEmail(), equalTo(resultBefore.getEmail()));
+
+        var newEmail = "new" + result.getEmail();
+        newUser = UserDto.builder()
+                .email(newEmail)
                 .build();
 
-        var result = userService.update(user.getId(), newDto);
-        assertThat(result.getId(), equalTo(user.getId()));
-        assertThat(result.getName(), equalTo(newDto.getName()));
-        assertThat(result.getEmail(), equalTo(userDto.getEmail()));
+        result = userService.update(userId, newUser);
+        assertThat(result.getId(), equalTo(userId));
+        assertThat(result.getName(), equalTo(newName));
+        assertThat(result.getEmail(), equalTo(newEmail));
 
-        var updateDto = UserDto.builder()
-                .name("updated name")
-                .email("updated@mail.com")
+        newName = "updated " + result.getName();
+        newEmail = "updated" + result.getEmail();
+        newUser = UserDto.builder()
+                .name(newName)
+                .email(newEmail)
                 .build();
 
-        result = userService.update(user.getId(), updateDto);
-        assertThat(result.getId(), equalTo(user.getId()));
-        assertThat(result.getName(), equalTo(updateDto.getName()));
-        assertThat(result.getEmail(), equalTo(updateDto.getEmail()));
+        result = userService.update(userId, newUser);
+        assertThat(result.getId(), equalTo(userId));
+        assertThat(result.getName(), equalTo(newName));
+        assertThat(result.getEmail(), equalTo(newEmail));
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void updateUnknownUserFail() {
         var updateDto = UserDto.builder()
                 .name("updated name")
                 .email("updated@mail.com")
                 .build();
 
-        var unknownUserId = 1L;
         var exception = assertThrows(NotFoundException.class, () -> userService.update(unknownUserId, updateDto));
         assertThat(exception.getMessage(), equalTo(ErrorMessages.USER_NOT_FOUND.getFormatMessage(unknownUserId)));
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void deleteOk() {
-        var user = userService.create(userDto);
-
-        userService.delete(user.getId());
-
-        var exception = assertThrows(NotFoundException.class, () -> userService.findById(user.getId()));
-        assertThat(exception.getMessage(), equalTo(ErrorMessages.USER_NOT_FOUND.getFormatMessage(user.getId())));
+        var query = em.createQuery("select u from User u where u.id = :id", User.class);
+        var resultBefore = query.setParameter("id", userId)
+                .getSingleResult();
+        userService.delete(resultBefore.getId());
+        assertThrows(NoResultException.class, () -> query.setParameter("id", userId).getSingleResult());
     }
 
 }

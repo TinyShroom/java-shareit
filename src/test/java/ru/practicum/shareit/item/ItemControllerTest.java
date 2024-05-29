@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -18,6 +20,7 @@ import ru.practicum.shareit.item.dto.CommentDto;
 import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.item.dto.ItemWithBookingsDto;
 import ru.practicum.shareit.item.service.ItemService;
+import ru.practicum.shareit.util.PageRequestWithOffset;
 
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
@@ -148,7 +151,10 @@ class ItemControllerTest {
         var mockRequest = MockMvcRequestBuilders.get("/items")
                 .contentType(MediaType.APPLICATION_JSON)
                 .header(CUSTOM_HEADER, userId);
-        when(itemService.getAll(userId, 0, null))
+        var from = 0;
+        var size = 10;
+        Pageable pageable = PageRequestWithOffset.of(from, size, Sort.by("id"));
+        when(itemService.getAll(userId, pageable))
                 .thenReturn(items);
         mockMvc.perform(mockRequest)
                 .andExpect(status().isOk())
@@ -248,7 +254,10 @@ class ItemControllerTest {
                 .contentType(MediaType.APPLICATION_JSON)
                 .header(CUSTOM_HEADER, userId)
                 .param("text", text);
-        when(itemService.search(text, 0, null))
+        var from = 0;
+        var size = 10;
+        Pageable pageable = PageRequestWithOffset.of(from, size);
+        when(itemService.search(text, pageable))
                 .thenReturn(items);
         mockMvc.perform(mockRequest)
                 .andExpect(status().isOk())

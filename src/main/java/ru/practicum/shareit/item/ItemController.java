@@ -1,6 +1,8 @@
 package ru.practicum.shareit.item;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -11,6 +13,7 @@ import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.item.dto.ItemWithBookingsDto;
 import ru.practicum.shareit.item.service.ItemService;
 import ru.practicum.shareit.logging.Logging;
+import ru.practicum.shareit.util.PageRequestWithOffset;
 
 import javax.validation.Valid;
 import javax.validation.constraints.Min;
@@ -43,9 +46,10 @@ public class ItemController {
     @Logging
     @GetMapping
     public List<ItemWithBookingsDto> getAll(@RequestHeader(HEADER_USER_ID) long userId,
-                                            @RequestParam(defaultValue = "0") @Min(0) Integer from,
-                                            @RequestParam(required = false) @Min(1) Integer size) {
-        return itemService.getAll(userId, from, size);
+                                            @RequestParam(defaultValue = "0") @Min(0) int from,
+                                            @RequestParam(defaultValue = "10") @Min(1) int size) {
+        Pageable pageable = PageRequestWithOffset.of(from, size, Sort.by("id"));
+        return itemService.getAll(userId, pageable);
     }
 
     @Logging
@@ -68,9 +72,10 @@ public class ItemController {
     @Logging
     @GetMapping("/search")
     public List<ItemDto> search(@RequestParam String text,
-                                @RequestParam(defaultValue = "0") @Min(0) Integer from,
-                                @RequestParam(required = false) @Min(1) Integer size) {
-        return itemService.search(text, from, size);
+                                @RequestParam(defaultValue = "0") @Min(0) int from,
+                                @RequestParam(defaultValue = "10") @Min(1) int size) {
+        Pageable pageable = PageRequestWithOffset.of(from, size);
+        return itemService.search(text, pageable);
     }
 
     @Logging

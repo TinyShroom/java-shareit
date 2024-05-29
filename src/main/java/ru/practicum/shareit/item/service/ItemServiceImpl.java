@@ -1,7 +1,6 @@
 package ru.practicum.shareit.item.service;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
@@ -31,7 +30,6 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
-@Transactional(readOnly = true)
 @RequiredArgsConstructor
 public class ItemServiceImpl implements ItemService {
 
@@ -54,21 +52,22 @@ public class ItemServiceImpl implements ItemService {
                     .orElseThrow(() -> new NotFoundException(ErrorMessages.REQUEST_NOT_FOUND.getFormatMessage(
                             itemDto.getRequestId())));
         }
-        var item = itemMapper.dtoToItem(itemDto, owner, request);
-        return itemMapper.itemToDto(itemRepository.save(item));
+        var item = itemMapper.toModel(itemDto, owner, request);
+        return itemMapper.toDto(itemRepository.save(item));
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ItemWithBookingsDto findById(long userId, long id) {
         var item = itemRepository.findById(id)
                 .orElseThrow(() -> new NotFoundException(ErrorMessages.ITEM_NOT_FOUND.getFormatMessage(
                         id)));
         var comments = commentRepository.findAllByItemId(id)
                 .stream()
-                .map(commentMapper::shortToDtoResponse)
+                .map(commentMapper::toDto)
                 .collect(Collectors.toList());
         if (!item.getOwner().getId().equals(userId)) {
-            return itemMapper.itemsToDtoResponse(item, comments);
+            return itemMapper.toItemWithBookingsDto(item, comments);
         }
         var bookings = bookingRepository.findBookingsShortByItem(item.getId());
         var dateTime = LocalDateTime.now();
@@ -80,18 +79,14 @@ public class ItemServiceImpl implements ItemService {
                 .filter(b -> dateTime.isBefore(b.getStart()))
                 .min(Comparator.comparing(BookingShort::getStart))
                 .orElse(null);
-        return itemMapper.itemsToDtoResponse(item, last, next, comments);
+        return itemMapper.toItemWithBookingsDto(item, last, next, comments);
     }
 
     @Override
-    public List<ItemWithBookingsDto> getAll(long userId, int from, Integer size) {
+    @Transactional(readOnly = true)
+    public List<ItemWithBookingsDto> getAll(long userId, Pageable pageable) {
         List<Item> items;
-        if (size != null) {
-            var pageable = PageRequest.of(from / size, size, Sort.by("id"));
-            items = itemRepository.findAllByOwnerId(userId, pageable);
-        } else {
-            items = itemRepository.findAllByOwnerIdOrderById(userId);
-        }
+        items = itemRepository.findAllByOwnerId(userId, pageable);
         var dateTime = LocalDateTime.now();
         var itemsId = items.stream().map(Item::getId).collect(Collectors.toList());
         var bookings = bookingRepository.findAllBookingsShortByItemIdIn(itemsId, Sort.by("start").descending());
@@ -108,10 +103,10 @@ public class ItemServiceImpl implements ItemService {
         var comments = commentRepository.findAllByItemIdIn(itemsId)
                 .stream()
                 .collect(Collectors.groupingBy(CommentShort::getItemId,
-                        Collectors.mapping(commentMapper::shortToDtoResponse, Collectors.toList())));
+                        Collectors.mapping(commentMapper::toDto, Collectors.toList())));
 
         return items.stream()
-                .map(item -> itemMapper.itemsToDtoResponse(item, lastBookings.get(item.getId()),
+                .map(item -> itemMapper.toItemWithBookingsDto(item, lastBookings.get(item.getId()),
                         nextBookings.get(item.getId()), comments.getOrDefault(item.getId(), Collections.emptyList())))
                 .collect(Collectors.toList());
     }
@@ -127,9 +122,9 @@ public class ItemServiceImpl implements ItemService {
         if (!oldItem.getOwner().equals(owner)) {
             throw new AccessDeniedException(ErrorMessages.OWNER_UPDATE.getMessage());
         }
-        itemMapper.dtoToItem(oldItem, itemDto);
+        itemMapper.toModel(oldItem, itemDto);
         var item = itemRepository.save(oldItem);
-        return itemMapper.itemToDto(item);
+        return itemMapper.toDto(item);
     }
 
     @Override
@@ -147,13 +142,10 @@ public class ItemServiceImpl implements ItemService {
     }
 
     @Override
-    public List<ItemDto> search(String text, int from, Integer size) {
+    @Transactional(readOnly = true)
+    public List<ItemDto> search(String text, Pageable pageable) {
         if (text.isBlank()) return List.of();
-        var pageable = Pageable.unpaged();
-        if (size != null) {
-            pageable = PageRequest.of(from / size, size);
-        }
-        return itemMapper.itemsToDto(itemRepository.search(text, pageable));
+        return itemMapper.toDto(itemRepository.search(text, pageable));
     }
 
     @Override
@@ -168,8 +160,8 @@ public class ItemServiceImpl implements ItemService {
                 BookingStatus.APPROVED, dateTime).isEmpty()) {
             throw new AccessDeniedException(ErrorMessages.REVIEW_WITHOUT_BOOKING.getMessage());
         }
-        var comment = commentRepository.save(commentMapper.dtoToComment(commentCreateDto, author, item, dateTime));
-        return commentMapper.commentToDto(comment);
+        var comment = commentRepository.save(commentMapper.toModel(commentCreateDto, author, item, dateTime));
+        return commentMapper.toDto(comment);
     }
 
     private BookingShort getNextBooking(BookingShort next, BookingShort current) {

@@ -1,6 +1,8 @@
 package ru.practicum.shareit.booking;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.HttpStatus;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
@@ -10,6 +12,7 @@ import ru.practicum.shareit.booking.enums.BookingState;
 import ru.practicum.shareit.booking.service.BookingService;
 import ru.practicum.shareit.exception.ErrorMessages;
 import ru.practicum.shareit.logging.Logging;
+import ru.practicum.shareit.util.PageRequestWithOffset;
 
 import javax.validation.constraints.Min;
 import java.util.List;
@@ -55,21 +58,23 @@ public class BookingController {
     @GetMapping
     public List<BookingDto> getAllForUser(@RequestHeader(HEADER_USER_ID) long bookerId,
                                           @RequestParam(defaultValue = DEFAULT_BOOKING_STATE) String state,
-                                          @RequestParam(defaultValue = "0") @Min(0) Integer from,
-                                          @RequestParam(required = false) @Min(1) Integer size) {
+                                          @RequestParam(defaultValue = "0") @Min(0) int from,
+                                          @RequestParam(defaultValue = "10") @Min(1) int size) {
+        Pageable pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
         return bookingService.findAllForUser(bookerId, BookingState.parse(state)
                 .orElseThrow(() -> new IllegalArgumentException(ErrorMessages.UNKNOWN_STATE.getFormatMessage(state))),
-                from, size);
+                pageable);
     }
 
     @Logging
     @GetMapping("/owner")
     public List<BookingDto> getAllForOwner(@RequestHeader(HEADER_USER_ID) long ownerId,
                                            @RequestParam(defaultValue = DEFAULT_BOOKING_STATE) String state,
-                                           @RequestParam(defaultValue = "0") @Min(0) Integer from,
-                                           @RequestParam(required = false) @Min(1) Integer size) {
+                                           @RequestParam(defaultValue = "0") @Min(0) int from,
+                                           @RequestParam(defaultValue = "10") @Min(1) int size) {
+        Pageable pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
         return bookingService.findAllForOwner(ownerId, BookingState.parse(state)
                 .orElseThrow(() -> new IllegalArgumentException(ErrorMessages.UNKNOWN_STATE.getFormatMessage(state))),
-                from, size);
+                pageable);
     }
 }

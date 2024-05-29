@@ -16,8 +16,6 @@ public interface ItemRepository extends JpaRepository<Item, Long> {
             " or lower(it.description) like lower(concat('%', ?1,'%')))")
     List<Item> search(String text, Pageable pageable);
 
-    List<Item> findAllByOwnerIdOrderById(Long userId);
-
     List<Item> findAllByOwnerId(Long userId, Pageable pageable);
 
     @EntityGraph("item-graph")

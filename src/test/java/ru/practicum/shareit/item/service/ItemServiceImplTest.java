@@ -5,268 +5,274 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
-import ru.practicum.shareit.booking.dto.BookingCreateDto;
-import ru.practicum.shareit.booking.service.BookingService;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
+import org.springframework.test.annotation.DirtiesContext;
+import ru.practicum.shareit.booking.model.Booking;
+import ru.practicum.shareit.booking.model.BookingShort;
 import ru.practicum.shareit.exception.AccessDeniedException;
 import ru.practicum.shareit.exception.ErrorMessages;
 import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.item.dto.CommentCreateDto;
 import ru.practicum.shareit.item.dto.ItemDto;
+import ru.practicum.shareit.item.mapper.CommentMapper;
+import ru.practicum.shareit.item.mapper.ItemMapper;
+import ru.practicum.shareit.item.mapper.TestBookingMapper;
 import ru.practicum.shareit.item.model.Comment;
 import ru.practicum.shareit.item.model.Item;
-import ru.practicum.shareit.request.dto.RequestCreateDto;
-import ru.practicum.shareit.request.service.RequestService;
-import ru.practicum.shareit.user.dto.UserDto;
-import ru.practicum.shareit.user.service.UserService;
+import ru.practicum.shareit.request.Request;
+import ru.practicum.shareit.util.PageRequestWithOffset;
 
 import javax.persistence.EntityManager;
+import javax.persistence.NoResultException;
 import javax.transaction.Transactional;
 import java.time.LocalDateTime;
 import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
-import java.util.List;
+import java.util.Collections;
+import java.util.Comparator;
+import java.util.HashMap;
+import java.util.Map;
+import java.util.stream.Collectors;
 
 import static org.hamcrest.MatcherAssert.assertThat;
 import static org.hamcrest.Matchers.*;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Transactional
-@SpringBootTest(
-        properties = {"db.url=jdbc:h2:mem:test;MODE=PostgreSQL", "db.driver=org.h2.Driver"},
-        webEnvironment = SpringBootTest.WebEnvironment.NONE)
+@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
 class ItemServiceImplTest {
 
     private final ItemService itemService;
-    private final RequestService requestService;
-    private final UserService userService;
-    private final BookingService bookingService;
+    private final ItemMapper itemMapper;
     private final EntityManager em;
-    private UserDto userDto;
-    private UserDto ownerDto;
+    private final CommentMapper commentMapper;
+    private final TestBookingMapper testBookingMapper;
+
     private ItemDto itemCreateDto;
-    private RequestCreateDto requestCreateDto;
+
+    private final long ownerId = 1;
+    private final long bookerId = 2;
+    private final long userId = 3;
+    private final long unknownUserId = 99999;
+
+    private final long requestWithoutItemsId = 1;
+    private final long unknownRequestId = 99999;
+
+    private final long itemIdSecond = 2;
+    private final long itemWithoutBooking = 4;
+    private final long unknownItemId = 99999;
+
 
     @BeforeEach
     public void setUp() {
-        userDto = UserDto.builder()
-                .name("username")
-                .email("user@mail.com")
-                .build();
-
-        ownerDto = UserDto.builder()
-                .name("ownername")
-                .email("owner@mail.com")
-                .build();
-
         itemCreateDto = ItemDto.builder()
                 .name("item")
                 .description("item_description")
                 .available(true)
                 .build();
-
-        requestCreateDto = RequestCreateDto.builder()
-                .description("rq description")
-                .build();
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void createOk() {
-        var owner = userService.create(ownerDto);
-
-        var itemDto = itemService.create(owner.getId(), itemCreateDto);
+        var itemDto = itemService.create(ownerId, itemCreateDto);
 
         assertThat(itemDto.getName(), equalTo(itemCreateDto.getName()));
         assertThat(itemDto.getDescription(), equalTo(itemCreateDto.getDescription()));
         assertThat(itemDto.getAvailable(), equalTo(itemCreateDto.getAvailable()));
         assertThat(itemDto.getRequestId(), equalTo(itemCreateDto.getRequestId()));
 
-        var query = em.createQuery("select i from Item i where i.id = :id", Item.class);
-        var result = query.setParameter("id", itemDto.getId())
+        var itemQuery = em.createQuery("select i from Item i where i.id = :id", Item.class);
+        var itemResult = itemQuery.setParameter("id", itemDto.getId())
                 .getSingleResult();
 
-        assertThat(result.getId(), equalTo(itemDto.getId()));
-        assertThat(result.getOwner().getId(), equalTo(owner.getId()));
-        assertThat(result.getRequest(), nullValue());
-        assertThat(result.getName(), equalTo(itemDto.getName()));
-        assertThat(result.getDescription(), equalTo(itemDto.getDescription()));
-        assertThat(result.getAvailable(), equalTo(itemDto.getAvailable()));
+        assertThat(itemResult.getId(), equalTo(itemDto.getId()));
+        assertThat(itemResult.getOwner().getId(), equalTo(ownerId));
+        assertThat(itemResult.getRequest(), nullValue());
+        assertThat(itemResult.getName(), equalTo(itemDto.getName()));
+        assertThat(itemResult.getDescription(), equalTo(itemDto.getDescription()));
+        assertThat(itemResult.getAvailable(), equalTo(itemDto.getAvailable()));
 
-        var user = userService.create(userDto);
-        var requestDto = requestService.create(user.getId(), requestCreateDto);
+        var requestQuery = em.createQuery("select r from Request r where r.id = :id", Request.class);
+        var requestResult = requestQuery.setParameter("id", requestWithoutItemsId)
+                .getSingleResult();
+
         var itemCreateDtoWithRequest = ItemDto.builder()
                 .name("item_rq")
                 .description("description_rq")
                 .available(true)
-                .requestId(requestDto.getId())
+                .requestId(requestResult.getId())
                 .build();
+        var itemDtoRq = itemService.create(ownerId, itemCreateDtoWithRequest);
 
-        var itemDtoRq = itemService.create(owner.getId(), itemCreateDtoWithRequest);
         assertThat(itemDtoRq.getName(), equalTo(itemCreateDtoWithRequest.getName()));
         assertThat(itemDtoRq.getDescription(), equalTo(itemCreateDtoWithRequest.getDescription()));
         assertThat(itemDtoRq.getAvailable(), equalTo(itemCreateDtoWithRequest.getAvailable()));
-        assertThat(itemDtoRq.getRequestId(), equalTo(requestDto.getId()));
+        assertThat(itemDtoRq.getRequestId(), equalTo(requestWithoutItemsId));
 
-        result = query.setParameter("id", itemDtoRq.getId())
+        itemResult = itemQuery.setParameter("id", itemDtoRq.getId())
                 .getSingleResult();
 
-        assertThat(result.getId(), equalTo(itemDtoRq.getId()));
-        assertThat(result.getOwner().getId(), equalTo(owner.getId()));
-        assertThat(result.getRequest().getId(), equalTo(itemDtoRq.getRequestId()));
-        assertThat(result.getName(), equalTo(itemDtoRq.getName()));
-        assertThat(result.getDescription(), equalTo(itemDtoRq.getDescription()));
-        assertThat(result.getAvailable(), equalTo(itemDtoRq.getAvailable()));
+        assertThat(itemResult.getId(), equalTo(itemDtoRq.getId()));
+        assertThat(itemResult.getOwner().getId(), equalTo(ownerId));
+        assertThat(itemResult.getRequest().getId(), equalTo(itemDtoRq.getRequestId()));
+        assertThat(itemResult.getName(), equalTo(itemDtoRq.getName()));
+        assertThat(itemResult.getDescription(), equalTo(itemDtoRq.getDescription()));
+        assertThat(itemResult.getAvailable(), equalTo(itemDtoRq.getAvailable()));
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void createUnknownOwnerFail() {
-        var unknownOwnerId = 1L;
-
         var exception = assertThrows(NotFoundException.class,
-                () -> itemService.create(unknownOwnerId, itemCreateDto));
-        assertThat(exception.getMessage(), equalTo(ErrorMessages.USER_NOT_FOUND.getFormatMessage(unknownOwnerId)));
+                () -> itemService.create(unknownUserId, itemCreateDto));
+        assertThat(exception.getMessage(), equalTo(ErrorMessages.USER_NOT_FOUND.getFormatMessage(unknownUserId)));
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void createUnknownRequestFail() {
-        var owner = userService.create(ownerDto);
-        var unknownRequestDtoId = 1L;
-        itemCreateDto.setRequestId(unknownRequestDtoId);
+        itemCreateDto.setRequestId(unknownRequestId);
         var exception = assertThrows(NotFoundException.class,
-                () -> itemService.create(owner.getId(), itemCreateDto));
-        assertThat(exception.getMessage(), equalTo(ErrorMessages.REQUEST_NOT_FOUND.getFormatMessage(unknownRequestDtoId)));
+                () -> itemService.create(ownerId, itemCreateDto));
+        assertThat(exception.getMessage(), equalTo(ErrorMessages.REQUEST_NOT_FOUND.getFormatMessage(unknownRequestId)));
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void updateOk() {
-        var owner = userService.create(ownerDto);
 
-        var createdItem = itemService.create(owner.getId(), itemCreateDto);
+        var itemResult = em.createQuery("select i from Item i", Item.class)
+                .getResultList().stream()
+                .findAny()
+                .get();
 
+        var newDescription = "new " + itemResult.getDescription();
         var updateItemDto = ItemDto.builder()
-                .id(createdItem.getId())
-                .description("new description")
+                .id(itemResult.getId())
+                .description(newDescription)
                 .build();
 
-        var itemDto = itemService.update(owner.getId(), updateItemDto);
+        var itemDto = itemService.update(ownerId, updateItemDto);
 
-        assertThat(itemDto.getName(), equalTo(itemCreateDto.getName()));
+        assertThat(itemDto.getName(), equalTo(itemResult.getName()));
         assertThat(itemDto.getDescription(), equalTo(updateItemDto.getDescription()));
-        assertThat(itemDto.getAvailable(), equalTo(itemCreateDto.getAvailable()));
-        assertThat(itemDto.getRequestId(), equalTo(itemCreateDto.getRequestId()));
+        assertThat(itemDto.getAvailable(), equalTo(itemResult.getAvailable()));
+        if (itemResult.getRequest() != null) {
+            assertThat(itemDto.getRequestId(), equalTo(itemResult.getRequest().getId()));
+        } else {
+            assertThat(itemDto.getRequestId(), nullValue());
+        }
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void updateUnknownUserFail() {
-        var owner = userService.create(ownerDto);
-
-        var createdItem = itemService.create(owner.getId(), itemCreateDto);
+        var itemResult = em.createQuery("select i from Item i", Item.class)
+                .getResultList().stream()
+                .findAny()
+                .get();
 
         var updateItemDto = ItemDto.builder()
-                .id(createdItem.getId())
+                .id(itemResult.getId())
                 .description("new description")
                 .build();
 
-        var unknownUserId = owner.getId() + 1;
         var exception = assertThrows(NotFoundException.class,
                 () -> itemService.update(unknownUserId, updateItemDto));
         assertThat(exception.getMessage(), equalTo(ErrorMessages.USER_NOT_FOUND.getFormatMessage(unknownUserId)));
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void updateUnknownItemFail() {
-        var owner = userService.create(ownerDto);
-
         var itemDto = ItemDto.builder()
-                .id(1L)
+                .id(unknownItemId)
                 .build();
         var exception = assertThrows(NotFoundException.class,
-                () -> itemService.update(owner.getId(), itemDto));
+                () -> itemService.update(ownerId, itemDto));
         assertThat(exception.getMessage(), equalTo(ErrorMessages.ITEM_NOT_FOUND.getFormatMessage(itemDto.getId())));
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void updateNotOwnerFail() {
-        var owner = userService.create(ownerDto);
-        var user = userService.create(userDto);
-
-        var createdItem = itemService.create(owner.getId(), itemCreateDto);
-
+        var itemResult = em.createQuery("select i from Item i", Item.class)
+                .getResultList().stream()
+                .findAny()
+                .get();
         var updateItemDto = ItemDto.builder()
-                .id(createdItem.getId())
+                .id(itemResult.getId())
                 .description("new description")
                 .build();
 
         var exception = assertThrows(AccessDeniedException.class,
-                () -> itemService.update(user.getId(), updateItemDto));
-        assertThat(exception.getMessage(), equalTo(ErrorMessages.OWNER_UPDATE.getFormatMessage(user.getId())));
+                () -> itemService.update(userId, updateItemDto));
+        assertThat(exception.getMessage(), equalTo(ErrorMessages.OWNER_UPDATE.getFormatMessage(userId)));
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void deleteOk() {
-        var owner = userService.create(ownerDto);
-
-        var createdItem = itemService.create(owner.getId(), itemCreateDto);
-        itemService.delete(owner.getId(), createdItem.getId());
-        var exception = assertThrows(NotFoundException.class,
-                () -> itemService.findById(owner.getId(), createdItem.getId()));
-        assertThat(exception.getMessage(), equalTo(
-                ErrorMessages.ITEM_NOT_FOUND.getFormatMessage(createdItem.getId())));
+        var itemResult = em.createQuery("select i from Item i", Item.class)
+                .getResultList().stream()
+                .findAny()
+                .get();
+        itemService.delete(ownerId, itemResult.getId());
+        assertThrows(NoResultException.class,
+                () -> em.createQuery("select i from Item i where i.id = :id", Item.class)
+                        .setParameter("id", itemResult.getId())
+                        .getSingleResult());
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void deleteUnknownUserFail() {
-        var owner = userService.create(ownerDto);
-        var createdItem = itemService.create(owner.getId(), itemCreateDto);
-        var unknownUserId = owner.getId() + 1;
-
+        var itemResult = em.createQuery("select i from Item i", Item.class)
+                .getResultList().stream()
+                .findAny()
+                .get();
         var exception = assertThrows(NotFoundException.class,
-                () -> itemService.delete(unknownUserId, createdItem.getId()));
+                () -> itemService.delete(unknownUserId, itemResult.getId()));
         assertThat(exception.getMessage(), equalTo(ErrorMessages.USER_NOT_FOUND.getFormatMessage(unknownUserId)));
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void deleteUnknownItemFail() {
-        var owner = userService.create(ownerDto);
-        var unknownItemId = 1L;
-
         var exception = assertThrows(NotFoundException.class,
-                () -> itemService.delete(owner.getId(), unknownItemId));
+                () -> itemService.delete(ownerId, unknownItemId));
         assertThat(exception.getMessage(), equalTo(ErrorMessages.ITEM_NOT_FOUND.getFormatMessage(unknownItemId)));
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void deleteUserNotOwnerFail() {
-        var owner = userService.create(ownerDto);
-        var user = userService.create(userDto);
-        var createdItem = itemService.create(owner.getId(), itemCreateDto);
-
+        var itemResult = em.createQuery("select i from Item i", Item.class)
+                .getResultList().stream()
+                .findAny()
+                .get();
         var exception = assertThrows(AccessDeniedException.class,
-                () -> itemService.delete(user.getId(), createdItem.getId()));
-        assertThat(exception.getMessage(), equalTo(ErrorMessages.OWNER_DELETE.getFormatMessage(user.getId())));
+                () -> itemService.delete(userId, itemResult.getId()));
+        assertThat(exception.getMessage(), equalTo(ErrorMessages.OWNER_DELETE.getFormatMessage(userId)));
     }
 
     @Test
-    public void createCommentOk() throws InterruptedException {
-        var owner = userService.create(ownerDto);
-        var user = userService.create(userDto);
-
-        var item = itemService.create(owner.getId(), itemCreateDto);
-
-        var start = getCurrentTime();
-        var end = start.plusSeconds(1);
-
-        var bookingLast = bookingService.create(user.getId(), BookingCreateDto.builder()
-                .itemId(item.getId())
-                .start(start)
-                .end(end)
-                .build());
-        bookingService.updateStatus(bookingLast.getId(), owner.getId(), true);
-        var sleepTime = ChronoUnit.MILLIS.between(LocalDateTime.now(), end) + 1;
-        Thread.sleep(sleepTime);
-        var comment = itemService.createComment(user.getId(), item.getId(), CommentCreateDto.builder()
-                .text("First comment")
-                .build());
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
+    public void createCommentOk() {
+        var booking = em.createQuery("select b from Booking b where b.status = 'APPROVED'", Booking.class)
+                .getResultList().stream()
+                .filter(b -> b.getEnd().isBefore(getCurrentTime()))
+                .findAny()
+                .get();
+        var text = "Positive comment";
+        var comment = itemService.createComment(booking.getBooker().getId(), booking.getItem().getId(),
+                CommentCreateDto.builder()
+                        .text(text)
+                        .build());
+        assertThat(comment.getText(), equalTo(text));
+        assertThat(comment.getAuthorName(), equalTo(booking.getBooker().getName()));
         var query = em.createQuery("select c from Comment c where c.id = :id", Comment.class);
         var result = query.setParameter("id", comment.getId())
                 .getSingleResult();
@@ -275,306 +281,189 @@ class ItemServiceImplTest {
         assertThat(result.getAuthor().getName(), equalTo(comment.getAuthorName()));
         assertThat(result.getText(), equalTo(comment.getText()));
         assertThat(result.getCreated(), equalTo(comment.getCreated()));
-        assertThat(result.getItem().getId(), equalTo(item.getId()));
-        assertThat(result.getAuthor().getId(), equalTo(user.getId()));
+        assertThat(result.getItem().getId(), equalTo(booking.getItem().getId()));
+        assertThat(result.getAuthor().getId(), equalTo(booking.getBooker().getId()));
     }
 
     @Test
-    public void createCommentWithoutBookingFail() throws InterruptedException {
-        var owner = userService.create(ownerDto);
-        var user = userService.create(userDto);
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
+    public void createCommentWithoutBookingFail() {
+        var bookingFuture = em.createQuery("select b from Booking b where b.status = 'APPROVED'", Booking.class)
+                .getResultList().stream()
+                .filter(b -> b.getStart().isAfter(getCurrentTime()))
+                .findAny()
+                .get();
 
-        var itemRejected = itemService.create(owner.getId(), itemCreateDto);
-        var itemApproved = itemService.create(owner.getId(), itemCreateDto);
-        var itemWithoutBooking = itemService.create(owner.getId(), itemCreateDto);
+        var bookingRejected = em.createQuery("select b from Booking b where b.status = 'REJECTED'", Booking.class)
+                .getResultList().stream()
+                .filter(b -> b.getEnd().isBefore(getCurrentTime()))
+                .findAny()
+                .get();
 
-        var start = getCurrentTime().plusSeconds(1);
-        var end = start.plusSeconds(1);
-
-        var bookingRejected = bookingService.create(user.getId(), BookingCreateDto.builder()
-                .itemId(itemRejected.getId())
-                .start(start)
-                .end(end)
-                .build());
-        bookingService.updateStatus(bookingRejected.getId(), owner.getId(), false);
-        var bookingAccepted = bookingService.create(user.getId(), BookingCreateDto.builder()
-                .itemId(itemApproved.getId())
-                .start(start)
-                .end(start.plusDays(1))
-                .build());
-        bookingService.updateStatus(bookingAccepted.getId(), owner.getId(), true);
-        var sleepTime = ChronoUnit.MILLIS.between(LocalDateTime.now(), end) + 1;
-        Thread.sleep(sleepTime);
+        var commentCreateDto = CommentCreateDto.builder()
+                .text("First comment")
+                .build();
         var exception = assertThrows(AccessDeniedException.class,
-                () -> itemService.createComment(user.getId(), itemRejected.getId(), CommentCreateDto.builder()
-                        .text("First comment")
-                        .build()));
+                () -> itemService.createComment(bookerId, bookingRejected.getItem().getId(), commentCreateDto));
         assertThat(exception.getMessage(), equalTo(ErrorMessages.REVIEW_WITHOUT_BOOKING.getMessage()));
 
         exception = assertThrows(AccessDeniedException.class,
-                () -> itemService.createComment(user.getId(), itemApproved.getId(), CommentCreateDto.builder()
-                        .text("First comment")
-                        .build()));
+                () -> itemService.createComment(bookerId, bookingFuture.getItem().getId(), commentCreateDto));
         assertThat(exception.getMessage(), equalTo(ErrorMessages.REVIEW_WITHOUT_BOOKING.getMessage()));
 
         exception = assertThrows(AccessDeniedException.class,
-                () -> itemService.createComment(user.getId(), itemWithoutBooking.getId(), CommentCreateDto.builder()
-                        .text("First comment")
-                        .build()));
+                () -> itemService.createComment(userId, itemWithoutBooking, commentCreateDto));
         assertThat(exception.getMessage(), equalTo(ErrorMessages.REVIEW_WITHOUT_BOOKING.getMessage()));
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void createCommentUnknownItemFail() {
-        var user = userService.create(userDto);
-
-        var unknownItemId = 1L;
-
         var exception = assertThrows(NotFoundException.class,
-                () -> itemService.createComment(user.getId(), unknownItemId, CommentCreateDto.builder()
+                () -> itemService.createComment(bookerId, unknownItemId, CommentCreateDto.builder()
                         .text("First comment")
                         .build()));
         assertThat(exception.getMessage(), equalTo(ErrorMessages.ITEM_NOT_FOUND.getFormatMessage(unknownItemId)));
     }
 
     @Test
+    @DirtiesContext(methodMode = DirtiesContext.MethodMode.AFTER_METHOD)
     public void createCommentUnknownUserFail() {
-        var owner = userService.create(ownerDto);
-        var item = itemService.create(owner.getId(), itemCreateDto);
-
-        var unknownUserId = owner.getId() + 1;
-
+        var booking = em.createQuery("select b from Booking b where b.status = 'APPROVED'", Booking.class)
+                .getResultList().stream()
+                .filter(b -> b.getEnd().isBefore(getCurrentTime()))
+                .findAny()
+                .get();
         var exception = assertThrows(NotFoundException.class,
-                () -> itemService.createComment(unknownUserId, item.getId(), CommentCreateDto.builder()
+                () -> itemService.createComment(unknownUserId, booking.getItem().getId(), CommentCreateDto.builder()
                         .text("First comment")
                         .build()));
         assertThat(exception.getMessage(), equalTo(ErrorMessages.USER_NOT_FOUND.getFormatMessage(unknownUserId)));
     }
 
     @Test
-    public void findByIdOk() throws InterruptedException {
-        var owner = userService.create(ownerDto);
-        var user = userService.create(userDto);
+    public void findByIdOk() {
+        var item = em.createQuery("select i from Item i where i.id = :id", Item.class)
+                .setParameter("id", itemIdSecond)
+                .getSingleResult();
 
-        var item = itemService.create(owner.getId(), itemCreateDto);
-        var result = itemService.findById(user.getId(), item.getId());
-
-        assertThat(result.getId(), equalTo(item.getId()));
-        assertThat(result.getName(), equalTo(item.getName()));
-        assertThat(result.getDescription(), equalTo(item.getDescription()));
-        assertThat(result.getAvailable(), equalTo(item.getAvailable()));
-        assertThat(result.getComments(), hasSize(0));
-        assertThat(result.getLastBooking(), nullValue());
-        assertThat(result.getNextBooking(), nullValue());
-
-        var start = getCurrentTime().plusSeconds(1);
-        var end = start.plusSeconds(1);
-
-        var bookingLast = bookingService.create(user.getId(), BookingCreateDto.builder()
-                .itemId(result.getId())
-                .start(start)
-                .end(end)
-                .build());
-        bookingService.updateStatus(bookingLast.getId(), owner.getId(), true);
-        var sleepTime = ChronoUnit.MILLIS.between(LocalDateTime.now(), end) + 1;
-        Thread.sleep(sleepTime);
-        itemService.createComment(user.getId(), item.getId(), CommentCreateDto.builder()
-                .text("First comment")
-                .build());
-        itemService.createComment(user.getId(), item.getId(), CommentCreateDto.builder()
-                .text("Second comment")
-                .build());
-
-        result = itemService.findById(user.getId(), item.getId());
+        var bookings = em.createQuery("select b from Booking b where b.status = 'APPROVED' and b.item.id = :id",
+                        Booking.class)
+                .setParameter("id", item.getId())
+                .getResultList();
+        var bookingLast = bookings.stream()
+                .filter(b -> b.getStart().isBefore(getCurrentTime()))
+                .max(Comparator.comparing(b -> b.getStart().isBefore(getCurrentTime())))
+                .orElse(null);
+        var bookingNext = bookings.stream()
+                .filter(b -> b.getStart().isAfter(getCurrentTime()))
+                .min(Comparator.comparing(b -> b.getStart().isBefore(getCurrentTime())))
+                .orElse(null);
+        var comments = em.createQuery("select c from Comment c where c.item.id = :id", Comment.class)
+                .setParameter("id", item.getId())
+                .getResultStream()
+                .map(commentMapper::toDto)
+                .collect(Collectors.toList());
+        var result = itemService.findById(ownerId, item.getId());
 
         assertThat(result.getId(), equalTo(item.getId()));
         assertThat(result.getName(), equalTo(item.getName()));
         assertThat(result.getDescription(), equalTo(item.getDescription()));
         assertThat(result.getAvailable(), equalTo(item.getAvailable()));
-        assertThat(result.getComments(), hasSize(2));
-        assertThat(result.getLastBooking(), nullValue());
-        assertThat(result.getNextBooking(), nullValue());
-
-        var booking = bookingService.create(user.getId(), BookingCreateDto.builder()
-                .itemId(item.getId())
-                .start(getCurrentTime().plusDays(3))
-                .end(getCurrentTime().plusDays(4))
-                .build());
-        var bookingNext = bookingService.create(user.getId(), BookingCreateDto.builder()
-                .itemId(item.getId())
-                .start(getCurrentTime().plusDays(1))
-                .end(getCurrentTime().plusDays(2))
-                .build());
-        bookingService.updateStatus(booking.getId(), owner.getId(), true);
-        bookingService.updateStatus(bookingNext.getId(), owner.getId(), true);
-
-        result = itemService.findById(owner.getId(), item.getId());
-
-        assertThat(result.getId(), equalTo(item.getId()));
-        assertThat(result.getName(), equalTo(item.getName()));
-        assertThat(result.getDescription(), equalTo(item.getDescription()));
-        assertThat(result.getAvailable(), equalTo(item.getAvailable()));
-        assertThat(result.getComments(), hasSize(2));
-        assertThat(result.getLastBooking().getId(), equalTo(bookingLast.getId()));
-        assertThat(result.getLastBooking().getStart(), equalTo(bookingLast.getStart()));
-        assertThat(result.getLastBooking().getEnd(), equalTo(bookingLast.getEnd()));
-        assertThat(result.getNextBooking().getId(), equalTo(bookingNext.getId()));
-        assertThat(result.getNextBooking().getStart(), equalTo(bookingNext.getStart()));
-        assertThat(result.getNextBooking().getEnd(), equalTo(bookingNext.getEnd()));
+        assertThat(result.getComments(), hasSize(comments.size()));
+        if (bookingLast == null) {
+            assertThat(result.getLastBooking(), nullValue());
+        } else {
+            assertThat(result.getLastBooking().getId(), equalTo(bookingLast.getId()));
+            assertThat(result.getLastBooking().getStart(), equalTo(bookingLast.getStart()));
+            assertThat(result.getLastBooking().getEnd(), equalTo(bookingLast.getEnd()));
+        }
+        if (bookingNext == null) {
+            assertThat(result.getNextBooking(), nullValue());
+        } else {
+            assertThat(result.getNextBooking().getId(), equalTo(bookingNext.getId()));
+            assertThat(result.getNextBooking().getStart(), equalTo(bookingNext.getStart()));
+            assertThat(result.getNextBooking().getEnd(), equalTo(bookingNext.getEnd()));
+        }
+        org.assertj.core.api.Assertions.assertThat(result.getComments())
+                .usingRecursiveComparison()
+                .isEqualTo(comments);
     }
 
     @Test
     public void findByIdFail() {
-        var unknownUserId = 1L;
-        var unknownItemId = 1L;
         var exception = assertThrows(NotFoundException.class,
                 () -> itemService.findById(unknownUserId, unknownItemId));
         assertThat(exception.getMessage(), equalTo(ErrorMessages.ITEM_NOT_FOUND.getFormatMessage(unknownItemId)));
     }
 
     @Test
-    public void findAllOk() throws InterruptedException {
-        var owner = userService.create(ownerDto);
-        var user = userService.create(userDto);
+    public void findAllOk() {
+        var from = 1;
+        var size = 2;
+        var items = em.createQuery("select i from Item i", Item.class)
+                .getResultStream()
+                .sorted(Comparator.comparingLong(Item::getId))
+                .skip(from / size * size)
+                .limit(size)
+                .collect(Collectors.toList());
 
-        var result = itemService.getAll(owner.getId(), 0, null);
-        assertThat(result, hasSize(0));
-
-        var usersItem = itemService.create(user.getId(), itemCreateDto);
-        var item = itemService.create(owner.getId(), itemCreateDto);
-        List<ItemDto> items = new ArrayList<>();
-        items.add(item);
-        var size = 3;
-        for (var i = 0; i < size; ++i) {
-            items.add(itemService.create(owner.getId(), itemCreateDto));
+        var itemsId = items.stream()
+                .map(Item::getId)
+                .collect(Collectors.toList());
+        var bookings = em.createQuery("select b from Booking b where b.status = 'APPROVED' and b.item.id in :id",
+                        Booking.class)
+                .setParameter("id", itemsId)
+                .getResultStream()
+                .map(testBookingMapper::toModel)
+                .collect(Collectors.toList());
+        Map<Long, BookingShort> lastBookings = new HashMap<>();
+        Map<Long, BookingShort> nextBookings = new HashMap<>();
+        var dateTime = getCurrentTime();
+        for (var booking: bookings) {
+            if (dateTime.isAfter(booking.getStart())) {
+                lastBookings.putIfAbsent(booking.getItemId(), booking);
+            } else {
+                nextBookings.putIfAbsent(booking.getItemId(), booking);
+            }
         }
-        var start = getCurrentTime().plusSeconds(1);
-        var end = start.plusSeconds(1);
-
-        var bookingLast = bookingService.create(user.getId(), BookingCreateDto.builder()
-                .itemId(item.getId())
-                .start(start)
-                .end(end)
-                .build());
-        bookingService.updateStatus(bookingLast.getId(), owner.getId(), true);
-        var sleepTime = ChronoUnit.MILLIS.between(LocalDateTime.now(), end) + 1;
-        Thread.sleep(sleepTime);
-        itemService.createComment(user.getId(), item.getId(), CommentCreateDto.builder()
-                .text("First comment")
-                .build());
-        itemService.createComment(user.getId(), item.getId(), CommentCreateDto.builder()
-                .text("Second comment")
-                .build());
-
-        var booking = bookingService.create(user.getId(), BookingCreateDto.builder()
-                .itemId(item.getId())
-                .start(getCurrentTime().plusDays(3))
-                .end(getCurrentTime().plusDays(4))
-                .build());
-        var bookingNext = bookingService.create(user.getId(), BookingCreateDto.builder()
-                .itemId(item.getId())
-                .start(getCurrentTime().plusDays(1))
-                .end(getCurrentTime().plusDays(2))
-                .build());
-        bookingService.updateStatus(booking.getId(), owner.getId(), true);
-        bookingService.updateStatus(bookingNext.getId(), owner.getId(), true);
-
-        result = itemService.getAll(user.getId(), 0, null);
-        assertThat(result, hasSize(1));
-        assertThat(result.get(0).getName(), equalTo(usersItem.getName()));
-        assertThat(result.get(0).getDescription(), equalTo(usersItem.getDescription()));
-        assertThat(result.get(0).getAvailable(), equalTo(usersItem.getAvailable()));
-        assertThat(result.get(0).getComments(), hasSize(0));
-        assertThat(result.get(0).getLastBooking(), nullValue());
-        assertThat(result.get(0).getNextBooking(), nullValue());
-
-        result = itemService.getAll(owner.getId(), 0, size);
-        assertThat(result, hasSize(size));
-        assertThat(result.get(0).getName(), equalTo(item.getName()));
-        assertThat(result.get(0).getDescription(), equalTo(item.getDescription()));
-        assertThat(result.get(0).getAvailable(), equalTo(item.getAvailable()));
-        assertThat(result.get(0).getComments(), hasSize(2));
-        assertThat(result.get(0).getLastBooking().getId(), equalTo(bookingLast.getId()));
-        assertThat(result.get(0).getLastBooking().getStart(), equalTo(bookingLast.getStart()));
-        assertThat(result.get(0).getLastBooking().getEnd(), equalTo(bookingLast.getEnd()));
-        assertThat(result.get(0).getNextBooking().getId(), equalTo(bookingNext.getId()));
-        assertThat(result.get(0).getNextBooking().getStart(), equalTo(bookingNext.getStart()));
-        assertThat(result.get(0).getNextBooking().getEnd(), equalTo(bookingNext.getEnd()));
-        for (var i = 1; i < size; ++i) {
-            assertThat(result.get(i).getName(), equalTo(items.get(i).getName()));
-            assertThat(result.get(i).getDescription(), equalTo(items.get(i).getDescription()));
-            assertThat(result.get(i).getAvailable(), equalTo(items.get(i).getAvailable()));
-            assertThat(result.get(i).getComments(), hasSize(0));
-            assertThat(result.get(i).getLastBooking(), nullValue());
-            assertThat(result.get(i).getNextBooking(), nullValue());
-        }
+        var comments = em.createQuery("select c from Comment c where c.item.id in :id", Comment.class)
+                .setParameter("id", itemsId)
+                .getResultStream()
+                .collect(Collectors.groupingBy(c -> c.getItem().getId(),
+                        Collectors.mapping(commentMapper::toDto, Collectors.toList())));
+        var comparedItems = items.stream()
+                .map(item -> itemMapper.toItemWithBookingsDto(item, lastBookings.get(item.getId()),
+                        nextBookings.get(item.getId()), comments.getOrDefault(item.getId(), Collections.emptyList())))
+                .collect(Collectors.toList());
+        Pageable pageable = PageRequestWithOffset.of(from, size, Sort.by("id"));
+        var result = itemService.getAll(ownerId, pageable);
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(comparedItems);
     }
 
     @Test
     public void searchOk() {
-        var owner = userService.create(ownerDto);
-
         var text = "text";
-
-        var result = itemService.search(text, 0, null);
-        assertThat(result, hasSize(0));
-
-        var itemWithTextInNameDto = ItemDto.builder()
-                .name("it" + text + "em")
-                .description("item_description")
-                .available(true)
-                .build();
-
-        var itemWithTextInDescriptionDto = ItemDto.builder()
-                .name("item")
-                .description("item_description" + text)
-                .available(true)
-                .build();
-
-        var itemWithTextInDescriptionAndNameDto = ItemDto.builder()
-                .name(text + "item")
-                .description("item_desc" + text + "ription" + text)
-                .available(true)
-                .build();
-
-        itemService.create(owner.getId(), itemCreateDto);
-        var itemWithTextInName = itemService.create(owner.getId(), itemWithTextInNameDto);
-        var itemWithTextInDescription = itemService.create(owner.getId(), itemWithTextInDescriptionDto);
-        var itemWithTextInDescriptionAndName = itemService.create(owner.getId(), itemWithTextInDescriptionAndNameDto);
-
-        result = itemService.search("", 0, null);
-        assertThat(result, hasSize(0));
-
-        var from = 0;
+        var from = 3;
         var size = 2;
-        result = itemService.search(text, from, size);
-        assertThat(result, hasSize(size));
-        assertThat(result.get(0).getId(), equalTo(itemWithTextInName.getId()));
-        assertThat(result.get(0).getName(), equalTo(itemWithTextInNameDto.getName()));
-        assertThat(result.get(0).getDescription(), equalTo(itemWithTextInNameDto.getDescription()));
-        assertThat(result.get(0).getAvailable(), equalTo(itemWithTextInNameDto.getAvailable()));
-
-        assertThat(result.get(1).getId(), equalTo(itemWithTextInDescription.getId()));
-        assertThat(result.get(1).getName(), equalTo(itemWithTextInDescriptionDto.getName()));
-        assertThat(result.get(1).getDescription(), equalTo(itemWithTextInDescriptionDto.getDescription()));
-        assertThat(result.get(1).getAvailable(), equalTo(itemWithTextInDescriptionDto.getAvailable()));
-
-        result = itemService.search(text, 0, null);
-        assertThat(result, hasSize(3));
-        assertThat(result.get(0).getId(), equalTo(itemWithTextInName.getId()));
-        assertThat(result.get(0).getName(), equalTo(itemWithTextInNameDto.getName()));
-        assertThat(result.get(0).getDescription(), equalTo(itemWithTextInNameDto.getDescription()));
-        assertThat(result.get(0).getAvailable(), equalTo(itemWithTextInNameDto.getAvailable()));
-
-        assertThat(result.get(1).getId(), equalTo(itemWithTextInDescription.getId()));
-        assertThat(result.get(1).getName(), equalTo(itemWithTextInDescriptionDto.getName()));
-        assertThat(result.get(1).getDescription(), equalTo(itemWithTextInDescriptionDto.getDescription()));
-        assertThat(result.get(1).getAvailable(), equalTo(itemWithTextInDescriptionDto.getAvailable()));
-
-        assertThat(result.get(2).getId(), equalTo(itemWithTextInDescriptionAndName.getId()));
-        assertThat(result.get(2).getName(), equalTo(itemWithTextInDescriptionAndNameDto.getName()));
-        assertThat(result.get(2).getDescription(), equalTo(itemWithTextInDescriptionAndNameDto.getDescription()));
-        assertThat(result.get(2).getAvailable(), equalTo(itemWithTextInDescriptionAndNameDto.getAvailable()));
+        var items = em.createQuery("select i from Item i where" +
+                        " lower(i.name) like lower(concat('%', :text, '%')) or" +
+                        " lower(i.description) like lower(concat('%', :text, '%'))", Item.class)
+                .setParameter("text", text)
+                .getResultStream()
+                .filter(Item::getAvailable)
+                .skip(from / size * size)
+                .limit(size)
+                .map(itemMapper::toDto)
+                .collect(Collectors.toList());
+        Pageable pageable = PageRequestWithOffset.of(from, size);
+        var result = itemService.search(text, pageable);
+        assertThat(result, hasSize(items.size()));
+        org.assertj.core.api.Assertions.assertThat(result)
+                .usingRecursiveComparison()
+                .isEqualTo(items);
     }
 
     private LocalDateTime getCurrentTime() {

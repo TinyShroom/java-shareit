@@ -16,9 +16,9 @@ public interface BookingMapper {
 
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "status", constant = "WAITING")
-    Booking dtoToBooking(BookingCreateDto bookingCreateDto, User booker, Item item);
+    Booking toModel(BookingCreateDto bookingCreateDto, User booker, Item item);
 
-    BookingDto bookingToDtoResponse(Booking booking);
+    BookingDto toDto(Booking booking);
 
-    List<BookingDto> bookingsToDtoResponse(List<Booking> bookings);
+    List<BookingDto> toDto(List<Booking> bookings);
 }

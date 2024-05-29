@@ -19,23 +19,23 @@ public interface ItemMapper {
     @Mapping(target = "id", ignore = true)
     @Mapping(target = "name", source = "itemDto.name")
     @Mapping(target = "description", source = "itemDto.description")
-    Item dtoToItem(ItemDto itemDto, User owner, Request request);
+    Item toModel(ItemDto itemDto, User owner, Request request);
 
     @BeanMapping(nullValuePropertyMappingStrategy = NullValuePropertyMappingStrategy.IGNORE)
-    void dtoToItem(@MappingTarget final Item item, ItemDto itemDto);
+    void toModel(@MappingTarget final Item item, ItemDto itemDto);
 
     @Mapping(target = "requestId", source = "item.request.id")
-    ItemDto itemToDto(Item item);
+    ItemDto toDto(Item item);
 
-    List<ItemDto> itemsToDto(List<Item> items);
+    List<ItemDto> toDto(List<Item> items);
 
     @Mapping(target = "id", source = "item.id")
     @Mapping(target = "lastBooking", source = "last")
     @Mapping(target = "nextBooking", source = "next")
-    ItemWithBookingsDto itemsToDtoResponse(Item item, BookingShort last, BookingShort next, List<CommentDto> comments);
+    ItemWithBookingsDto toItemWithBookingsDto(Item item, BookingShort last, BookingShort next, List<CommentDto> comments);
 
-    ItemWithBookingsDto itemsToDtoResponse(Item item, List<CommentDto> comments);
+    ItemWithBookingsDto toItemWithBookingsDto(Item item, List<CommentDto> comments);
 
     @Mapping(target = "requestId", source = "item.request.id")
-    ItemWithRequestDto itemToDtoWithRequest(Item item);
+    ItemWithRequestDto toItemWithRequestDto(Item item);
 }

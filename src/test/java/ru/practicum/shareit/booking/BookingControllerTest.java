@@ -7,6 +7,8 @@ import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.autoconfigure.web.servlet.WebMvcTest;
 import org.springframework.boot.test.mock.mockito.MockBean;
+import org.springframework.data.domain.Pageable;
+import org.springframework.data.domain.Sort;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
@@ -20,6 +22,7 @@ import ru.practicum.shareit.booking.service.BookingService;
 import ru.practicum.shareit.exception.ErrorMessages;
 import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.item.dto.ItemShortDto;
+import ru.practicum.shareit.util.PageRequestWithOffset;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
@@ -293,7 +296,8 @@ class BookingControllerTest {
         var mockRequest = MockMvcRequestBuilders.get(String.format("/bookings?from=%d&size=%d", from, size))
                 .contentType(MediaType.APPLICATION_JSON)
                 .header(CUSTOM_HEADER, bookerId);
-        when(bookingService.findAllForUser(bookerId, BookingState.ALL, from, size))
+        Pageable pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
+        when(bookingService.findAllForUser(bookerId, BookingState.ALL, pageable))
                 .thenReturn(response);
         mockMvc.perform(mockRequest)
                 .andExpect(status().isOk())
@@ -302,7 +306,7 @@ class BookingControllerTest {
             mockRequest = MockMvcRequestBuilders.get("/bookings?state=" + state)
                     .contentType(MediaType.APPLICATION_JSON)
                     .header(CUSTOM_HEADER, bookerId);
-            when(bookingService.findAllForUser(bookerId, state, 0, null))
+            when(bookingService.findAllForUser(bookerId, state, pageable))
                     .thenReturn(response);
             mockMvc.perform(mockRequest)
                     .andExpect(status().isOk())
@@ -362,10 +366,11 @@ class BookingControllerTest {
                         .build());
         var from = 0;
         var size = 10;
+        Pageable pageable = PageRequestWithOffset.of(from, size, Sort.by("start").descending());
         var mockRequest = MockMvcRequestBuilders.get(String.format("/bookings/owner?from=%d&size=%d", from, size))
                 .contentType(MediaType.APPLICATION_JSON)
                 .header(CUSTOM_HEADER, ownerId);
-        when(bookingService.findAllForOwner(ownerId, BookingState.ALL, from, size))
+        when(bookingService.findAllForOwner(ownerId, BookingState.ALL, pageable))
                 .thenReturn(response);
         mockMvc.perform(mockRequest)
                 .andExpect(status().isOk())
@@ -374,7 +379,7 @@ class BookingControllerTest {
             mockRequest = MockMvcRequestBuilders.get("/bookings/owner?state=" + state)
                     .contentType(MediaType.APPLICATION_JSON)
                     .header(CUSTOM_HEADER, ownerId);
-            when(bookingService.findAllForOwner(ownerId, state, 0, null))
+            when(bookingService.findAllForOwner(ownerId, state, pageable))
                     .thenReturn(response);
             mockMvc.perform(mockRequest)
                     .andExpect(status().isOk())

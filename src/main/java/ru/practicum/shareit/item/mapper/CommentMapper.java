@@ -15,10 +15,10 @@ import java.time.LocalDateTime;
 public interface CommentMapper {
 
     @Mapping(target = "id", ignore = true)
-    Comment dtoToComment(CommentCreateDto commentDto, User author, Item item, LocalDateTime created);
+    Comment toModel(CommentCreateDto commentDto, User author, Item item, LocalDateTime created);
 
     @Mapping(target = "authorName", source = "comment.author.name")
-    CommentDto commentToDto(Comment comment);
+    CommentDto toDto(Comment comment);
 
-    CommentDto shortToDtoResponse(CommentShort comment);
+    CommentDto toDto(CommentShort comment);
 }

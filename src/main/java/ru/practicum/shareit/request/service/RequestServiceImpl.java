@@ -1,7 +1,7 @@
 package ru.practicum.shareit.request.service;
 
 import lombok.RequiredArgsConstructor;
-import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -25,7 +25,6 @@ import java.util.stream.Collectors;
 
 @Service
 @RequiredArgsConstructor
-@Transactional(readOnly = true)
 public class RequestServiceImpl implements RequestService {
 
     private final RequestRepository requestRepository;
@@ -39,23 +38,26 @@ public class RequestServiceImpl implements RequestService {
     public RequestDto create(long userId, RequestCreateDto requestCreateDto) {
         var user = userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException(ErrorMessages.USER_NOT_FOUND.getFormatMessage(userId)));
-        var request = requestRepository.save(requestMapper.dtoToRequest(requestCreateDto, user, LocalDateTime.now()));
-        return requestMapper.requestToDto(request);
+        var rq = requestMapper.toModel(requestCreateDto, user, LocalDateTime.now());
+        var request = requestRepository.save(rq);
+        return requestMapper.toDto(request);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public RequestWithItemsDto findById(long userId, long requestId) {
         userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException(ErrorMessages.USER_NOT_FOUND.getFormatMessage(userId)));
         var request = requestRepository.findById(requestId)
                 .orElseThrow(() -> new NotFoundException(ErrorMessages.REQUEST_NOT_FOUND.getFormatMessage(requestId)));
         var items = itemRepository.findAllByRequestId(requestId).stream()
-                .map(itemMapper::itemToDtoWithRequest)
+                .map(itemMapper::toItemWithRequestDto)
                 .collect(Collectors.toList());
-        return requestMapper.requestToDto(request, items);
+        return requestMapper.toRequestWithItemsDto(request, items);
     }
 
     @Override
+    @Transactional(readOnly = true)
     public List<RequestWithItemsDto> findByUserId(long userId) {
         userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException(ErrorMessages.USER_NOT_FOUND.getFormatMessage(userId)));
@@ -64,17 +66,11 @@ public class RequestServiceImpl implements RequestService {
     }
 
     @Override
-    public List<RequestWithItemsDto> findAll(long userId, int from, Integer size) {
+    @Transactional(readOnly = true)
+    public List<RequestWithItemsDto> findAll(long userId, Pageable pageable) {
         userRepository.findById(userId)
                 .orElseThrow(() -> new NotFoundException(ErrorMessages.USER_NOT_FOUND.getFormatMessage(userId)));
-        List<Request> requests;
-        var sortByCreated = Sort.by("created").descending();
-        if (size == null) {
-            requests = requestRepository.findAllByUserIdNot(userId, sortByCreated);
-        } else {
-            var pageable = PageRequest.of(from / size, size, sortByCreated);
-            requests = requestRepository.findAllByUserIdNot(userId, pageable);
-        }
+        List<Request> requests = requestRepository.findAllByUserIdNot(userId, pageable);
         return getItems(requests);
     }
 
@@ -84,11 +80,11 @@ public class RequestServiceImpl implements RequestService {
                 .collect(Collectors.toList());
         var items = itemRepository.findAllByRequestIdIn(requestsId)
                 .stream()
-                .map(itemMapper::itemToDtoWithRequest)
+                .map(itemMapper::toItemWithRequestDto)
                 .collect(Collectors.groupingBy(ItemWithRequestDto::getRequestId, Collectors.toList()));
 
         return requests.stream()
-                .map(r -> requestMapper.requestToDto(r, items.getOrDefault(r.getId(), Collections.emptyList())))
+                .map(r -> requestMapper.toRequestWithItemsDto(r, items.getOrDefault(r.getId(), Collections.emptyList())))
                 .collect(Collectors.toList());
     }
 }
