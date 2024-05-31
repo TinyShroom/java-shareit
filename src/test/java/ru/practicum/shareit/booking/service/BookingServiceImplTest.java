@@ -266,6 +266,7 @@ class BookingServiceImplTest {
                 .usingRecursiveComparison()
                 .isEqualTo(bookingToCompare);
     }
+
     @Test
     public void findAllForUserRejectedOk() {
         var bookings = getBookingsForUser();
@@ -327,6 +328,7 @@ class BookingServiceImplTest {
                 .usingRecursiveComparison()
                 .isEqualTo(bookingToCompare);
     }
+
     @Test
     public void findAllForUserFutureOk() {
         var bookings = getBookingsForUser();
