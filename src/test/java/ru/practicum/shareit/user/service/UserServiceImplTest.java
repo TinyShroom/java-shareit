@@ -23,8 +23,8 @@ import static org.hamcrest.Matchers.equalTo;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Transactional
+@SpringBootTest
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class UserServiceImplTest {
 
     private final UserService userService;

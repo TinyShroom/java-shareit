@@ -32,8 +32,8 @@ import static org.hamcrest.Matchers.hasSize;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @Transactional
+@SpringBootTest
 @RequiredArgsConstructor(onConstructor_ = @Autowired)
-@SpringBootTest(webEnvironment = SpringBootTest.WebEnvironment.NONE)
 class BookingServiceImplTest {
 
     private final BookingService bookingService;
