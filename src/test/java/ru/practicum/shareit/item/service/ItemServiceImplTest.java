@@ -364,7 +364,21 @@ class ItemServiceImplTest {
                 .getResultStream()
                 .map(commentMapper::toDto)
                 .collect(Collectors.toList());
-        var result = itemService.findById(ownerId, item.getId());
+
+        var result = itemService.findById(userId, item.getId());
+
+        assertThat(result.getId(), equalTo(item.getId()));
+        assertThat(result.getName(), equalTo(item.getName()));
+        assertThat(result.getDescription(), equalTo(item.getDescription()));
+        assertThat(result.getAvailable(), equalTo(item.getAvailable()));
+        assertThat(result.getComments(), hasSize(comments.size()));
+        assertThat(result.getLastBooking(), nullValue());
+        assertThat(result.getNextBooking(), nullValue());
+        org.assertj.core.api.Assertions.assertThat(result.getComments())
+                .usingRecursiveComparison()
+                .isEqualTo(comments);
+
+        result = itemService.findById(ownerId, item.getId());
 
         assertThat(result.getId(), equalTo(item.getId()));
         assertThat(result.getName(), equalTo(item.getName()));
