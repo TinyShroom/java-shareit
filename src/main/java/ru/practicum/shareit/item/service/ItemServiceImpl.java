@@ -1,22 +1,28 @@
 package ru.practicum.shareit.item.service;
 
 import lombok.RequiredArgsConstructor;
+import org.springframework.data.domain.Pageable;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 import ru.practicum.shareit.booking.dao.BookingRepository;
 import ru.practicum.shareit.booking.enums.BookingStatus;
 import ru.practicum.shareit.booking.model.BookingShort;
 import ru.practicum.shareit.exception.AccessDeniedException;
+import ru.practicum.shareit.exception.ErrorMessages;
 import ru.practicum.shareit.exception.NotFoundException;
 import ru.practicum.shareit.item.dao.CommentRepository;
 import ru.practicum.shareit.item.dao.ItemRepository;
 import ru.practicum.shareit.item.dto.CommentCreateDto;
-import ru.practicum.shareit.item.dto.CommentDtoResponse;
+import ru.practicum.shareit.item.dto.CommentDto;
 import ru.practicum.shareit.item.dto.ItemDto;
 import ru.practicum.shareit.item.dto.ItemWithBookingsDto;
 import ru.practicum.shareit.item.mapper.CommentMapper;
 import ru.practicum.shareit.item.mapper.ItemMapper;
 import ru.practicum.shareit.item.model.CommentShort;
+import ru.practicum.shareit.item.model.Item;
+import ru.practicum.shareit.request.Request;
+import ru.practicum.shareit.request.dao.RequestRepository;
 import ru.practicum.shareit.user.dao.UserRepository;
 
 import java.time.LocalDateTime;
@@ -31,27 +37,37 @@ public class ItemServiceImpl implements ItemService {
     private final UserRepository userRepository;
     private final BookingRepository bookingRepository;
     private final CommentRepository commentRepository;
+    private final RequestRepository requestRepository;
     private final ItemMapper itemMapper;
     private final CommentMapper commentMapper;
 
     @Override
+    @Transactional
     public ItemDto create(long userId, ItemDto itemDto) {
         var owner = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException(String.format("user with id == %d not found", userId)));
-        var item = itemMapper.dtoToItem(itemDto, owner);
-        return itemMapper.itemToDto(itemRepository.save(item));
+                .orElseThrow(() -> new NotFoundException(ErrorMessages.USER_NOT_FOUND.getFormatMessage(userId)));
+        Request request = null;
+        if (itemDto.getRequestId() != null) {
+            request = requestRepository.findById(itemDto.getRequestId())
+                    .orElseThrow(() -> new NotFoundException(ErrorMessages.REQUEST_NOT_FOUND.getFormatMessage(
+                            itemDto.getRequestId())));
+        }
+        var item = itemMapper.toModel(itemDto, owner, request);
+        return itemMapper.toDto(itemRepository.save(item));
     }
 
     @Override
+    @Transactional(readOnly = true)
     public ItemWithBookingsDto findById(long userId, long id) {
         var item = itemRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException(String.format("item with id == %d not found", id)));
+                .orElseThrow(() -> new NotFoundException(ErrorMessages.ITEM_NOT_FOUND.getFormatMessage(
+                        id)));
         var comments = commentRepository.findAllByItemId(id)
                 .stream()
-                .map(commentMapper::shortToDtoResponse)
+                .map(commentMapper::toDto)
                 .collect(Collectors.toList());
         if (!item.getOwner().getId().equals(userId)) {
-            return itemMapper.itemsToDtoResponse(item, comments);
+            return itemMapper.toItemWithBookingsDto(item, comments);
         }
         var bookings = bookingRepository.findBookingsShortByItem(item.getId());
         var dateTime = LocalDateTime.now();
@@ -63,14 +79,17 @@ public class ItemServiceImpl implements ItemService {
                 .filter(b -> dateTime.isBefore(b.getStart()))
                 .min(Comparator.comparing(BookingShort::getStart))
                 .orElse(null);
-        return itemMapper.itemsToDtoResponse(item, last, next, comments);
+        return itemMapper.toItemWithBookingsDto(item, last, next, comments);
     }
 
     @Override
-    public List<ItemWithBookingsDto> getAll(long userId) {
-        var items = itemRepository.findAllByOwnerIdOrderById(userId);
+    @Transactional(readOnly = true)
+    public List<ItemWithBookingsDto> getAll(long userId, Pageable pageable) {
+        List<Item> items;
+        items = itemRepository.findAllByOwnerId(userId, pageable);
         var dateTime = LocalDateTime.now();
-        var bookings = bookingRepository.findAllBookingsShortByOwner(userId, Sort.by("start").descending());
+        var itemsId = items.stream().map(Item::getId).collect(Collectors.toList());
+        var bookings = bookingRepository.findAllBookingsShortByItemIdIn(itemsId, Sort.by("start").descending());
         Map<Long, BookingShort> lastBookings = new HashMap<>();
         Map<Long, BookingShort> nextBookings = new HashMap<>();
         for (var booking: bookings) {
@@ -81,63 +100,68 @@ public class ItemServiceImpl implements ItemService {
             }
         }
 
-        var comments = commentRepository.findAllByOwnerId(userId)
+        var comments = commentRepository.findAllByItemIdIn(itemsId)
                 .stream()
                 .collect(Collectors.groupingBy(CommentShort::getItemId,
-                        Collectors.mapping(commentMapper::shortToDtoResponse, Collectors.toList())));
+                        Collectors.mapping(commentMapper::toDto, Collectors.toList())));
 
         return items.stream()
-                .map(item -> itemMapper.itemsToDtoResponse(item, lastBookings.get(item.getId()),
+                .map(item -> itemMapper.toItemWithBookingsDto(item, lastBookings.get(item.getId()),
                         nextBookings.get(item.getId()), comments.getOrDefault(item.getId(), Collections.emptyList())))
                 .collect(Collectors.toList());
     }
 
     @Override
+    @Transactional
     public ItemDto update(long userId, ItemDto itemDto) {
         var owner = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException(String.format("user with id == %d not found", userId)));
+                .orElseThrow(() -> new NotFoundException(ErrorMessages.USER_NOT_FOUND.getFormatMessage(userId)));
         var oldItem = itemRepository.findById(itemDto.getId())
-                .orElseThrow(() -> new NotFoundException(String.format("item with id == %d not found",
+                .orElseThrow(() -> new NotFoundException(ErrorMessages.ITEM_NOT_FOUND.getFormatMessage(
                         itemDto.getId())));
         if (!oldItem.getOwner().equals(owner)) {
-            throw new AccessDeniedException("only owner can update item");
+            throw new AccessDeniedException(ErrorMessages.OWNER_UPDATE.getMessage());
         }
-        itemMapper.dtoToItem(oldItem, itemDto);
+        itemMapper.toModel(oldItem, itemDto);
         var item = itemRepository.save(oldItem);
-        return itemMapper.itemToDto(item);
+        return itemMapper.toDto(item);
     }
 
     @Override
+    @Transactional
     public void delete(long userId, long id) {
         userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException(String.format("user with id == %d not found", userId)));
+                .orElseThrow(() -> new NotFoundException(ErrorMessages.USER_NOT_FOUND.getFormatMessage(userId)));
         var item = itemRepository.findById(id)
-                .orElseThrow(() -> new NotFoundException(String.format("item with id == %d not found", id)));
+                .orElseThrow(() -> new NotFoundException(ErrorMessages.ITEM_NOT_FOUND.getFormatMessage(
+                        id)));
         if (!item.getOwner().getId().equals(userId)) {
-            throw new AccessDeniedException("only owner can delete item");
+            throw new AccessDeniedException(ErrorMessages.OWNER_DELETE.getMessage());
         }
         itemRepository.deleteById(id);
     }
 
     @Override
-    public List<ItemDto> search(String text) {
+    @Transactional(readOnly = true)
+    public List<ItemDto> search(String text, Pageable pageable) {
         if (text.isBlank()) return List.of();
-        return itemMapper.itemsToDto(itemRepository.search(text));
+        return itemMapper.toDto(itemRepository.search(text, pageable));
     }
 
     @Override
-    public CommentDtoResponse createComment(long userId, long itemId, CommentCreateDto commentCreateDto) {
+    @Transactional
+    public CommentDto createComment(long userId, long itemId, CommentCreateDto commentCreateDto) {
         var author = userRepository.findById(userId)
-                .orElseThrow(() -> new NotFoundException(String.format("user with id == %d not found", userId)));
+                .orElseThrow(() -> new NotFoundException(ErrorMessages.USER_NOT_FOUND.getFormatMessage(userId)));
         var item = itemRepository.findById(itemId)
-                .orElseThrow(() -> new NotFoundException(String.format("item with id == %d not found", itemId)));
+                .orElseThrow(() -> new NotFoundException(ErrorMessages.ITEM_NOT_FOUND.getFormatMessage(itemId)));
         var dateTime = LocalDateTime.now();
         if (bookingRepository.findByItemIdAndBookerIdAndStatusAndEndBefore(itemId, userId,
                 BookingStatus.APPROVED, dateTime).isEmpty()) {
-            throw new AccessDeniedException("you cannot create a review without booking");
+            throw new AccessDeniedException(ErrorMessages.REVIEW_WITHOUT_BOOKING.getMessage());
         }
-        var comment = commentRepository.save(commentMapper.dtoToComment(commentCreateDto, author, item, dateTime));
-        return commentMapper.commentToDto(comment);
+        var comment = commentRepository.save(commentMapper.toModel(commentCreateDto, author, item, dateTime));
+        return commentMapper.toDto(comment);
     }
 
     private BookingShort getNextBooking(BookingShort next, BookingShort current) {
