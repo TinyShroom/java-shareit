@@ -19,7 +19,7 @@ services:
       timeout: 5s
       interval: 5s
       retries: 10
-  shareit-server:
+  server:
     build: ./server
     container_name: shareit-server
     image: shareit-server
@@ -33,7 +33,7 @@ services:
       - POSTGRES_USER=shareit
     depends_on:
       - db
-  shareit-gateway:
+  gateway:
     build: ./gateway
     container_name: shareit-gateway
     image: shareit-gateway
@@ -42,7 +42,7 @@ services:
     ports:
       - "8080:8080"
     depends_on:
-      - shareit-server
+      - server
     environment:
-      - SERVER_HOST=shareit-server
+      - SERVER_HOST=server
 
