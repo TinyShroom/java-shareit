@@ -27,20 +27,6 @@ public class ControllerExceptionHandler {
         return new ErrorDto(ErrorMessages.VALIDATION_EXCEPTION.getMessage());
     }
 
-    @ResponseStatus(HttpStatus.NOT_FOUND)
-    @ExceptionHandler
-    public ErrorDto exceptionHandler(NotFoundException e) {
-        log.info("NotFoundException: {}", e.getMessage());
-        return new ErrorDto(e.getMessage());
-    }
-
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    @ExceptionHandler
-    public ErrorDto exceptionHandler(AccessDeniedException e) {
-        log.info("AccessDeniedException: {}", e.getMessage());
-        return new ErrorDto(e.getMessage());
-    }
-
     @ResponseStatus(HttpStatus.BAD_REQUEST)
     @ExceptionHandler
     public ErrorDto exceptionHandler(IllegalArgumentException e) {

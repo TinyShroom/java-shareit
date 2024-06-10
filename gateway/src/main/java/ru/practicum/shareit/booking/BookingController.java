@@ -60,7 +60,7 @@ public class BookingController {
 				.orElseThrow(() -> new IllegalArgumentException(
 						ErrorMessages.UNKNOWN_STATE.getFormatMessage(state)));
 		Map<String, Object> parameters = Map.of(
-				"state", bookingState.name(),
+				"state", bookingState,
 				"from", from,
 				"size", size
 		);
@@ -81,7 +81,7 @@ public class BookingController {
 				"from", from,
 				"size", size
 		);
-		return bookingClient.findAllForOwner(ownerId, parameters);
+		return bookingClient.getAllForOwner(ownerId, parameters);
 	}
 
 }

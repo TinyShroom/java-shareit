@@ -6,6 +6,7 @@ import org.springframework.boot.web.client.RestTemplateBuilder;
 import org.springframework.http.ResponseEntity;
 import org.springframework.http.client.HttpComponentsClientHttpRequestFactory;
 import org.springframework.stereotype.Service;
+import org.springframework.web.client.RestTemplate;
 import org.springframework.web.util.DefaultUriBuilderFactory;
 import ru.practicum.shareit.booking.dto.BookingCreateDto;
 import ru.practicum.shareit.client.BaseClient;
@@ -26,6 +27,10 @@ public class BookingClient extends BaseClient {
         );
     }
 
+    public BookingClient(RestTemplate restTemplate) {
+        super(restTemplate);
+    }
+
     public ResponseEntity<Object> create(long userId, BookingCreateDto requestDto) {
         return post("", userId, requestDto);
     }
@@ -42,7 +47,7 @@ public class BookingClient extends BaseClient {
         return get("?state={state}&from={from}&size={size}", userId, parameters);
     }
 
-    public ResponseEntity<Object> findAllForOwner(long ownerId, Map<String, Object> parameters) {
+    public ResponseEntity<Object> getAllForOwner(long ownerId, Map<String, Object> parameters) {
         return get("/owner?state={state}&from={from}&size={size}", ownerId, parameters);
     }
 }
