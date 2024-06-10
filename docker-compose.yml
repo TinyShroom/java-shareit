@@ -23,8 +23,6 @@ services:
     build: ./server
     container_name: shareit-server
     image: shareit-server
-    volumes:
-      - ./log/shareit-server:/var/log/shareit-server
     ports:
       - "9090:9090"
     environment:
@@ -37,8 +35,6 @@ services:
     build: ./gateway
     container_name: shareit-gateway
     image: shareit-gateway
-    volumes:
-      - ./log/shareit-gateway:/var/log/shareit-gateway
     ports:
       - "8080:8080"
     depends_on:
