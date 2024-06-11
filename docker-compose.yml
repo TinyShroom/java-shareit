@@ -13,12 +13,12 @@ services:
       - POSTGRES_USER=shareit
       - POSTGRES_DB=shareit
       - PGDATA=/var/lib/postgresql/data/pgdata
-
     healthcheck:
       test: pg_isready -q -d $$POSTGRES_DB -U $$POSTGRES_USER
       timeout: 5s
       interval: 5s
       retries: 10
+
   server:
     build: ./server
     container_name: shareit-server
@@ -26,11 +26,12 @@ services:
     ports:
       - "9090:9090"
     environment:
-      - POSTGRES_HOST=db
-      - POSTGRES_PASSWORD=123456
-      - POSTGRES_USER=shareit
+      - SPRING_DATASOURCE_URL=jdbc:postgresql://db:5432/shareit
+      - SPRING_DATASOURCE_USERNAME=shareit
+      - SPRING_DATASOURCE_PASSWORD=123456
     depends_on:
       - db
+
   gateway:
     build: ./gateway
     container_name: shareit-gateway
@@ -40,5 +41,4 @@ services:
     depends_on:
       - server
     environment:
-      - SERVER_HOST=server
-
+      - SHAREIT_SERVER_URL=http://server:9090

@@ -14,20 +14,6 @@ import javax.validation.ValidationException;
 @RestControllerAdvice
 public class ControllerExceptionHandler {
 
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    @ExceptionHandler
-    public ErrorDto exceptionHandler(ValidationException e) {
-        log.info("ValidationException: {}", e.getMessage());
-        return new ErrorDto(e.getMessage());
-    }
-
-    @ResponseStatus(HttpStatus.BAD_REQUEST)
-    @ExceptionHandler
-    public ErrorDto exceptionHandler(MethodArgumentNotValidException e) {
-        log.info("MethodArgumentNotValidException: {}", e.getMessage());
-        return new ErrorDto(ErrorMessages.VALIDATION_EXCEPTION.getMessage());
-    }
-
     @ResponseStatus(HttpStatus.NOT_FOUND)
     @ExceptionHandler
     public ErrorDto exceptionHandler(NotFoundException e) {

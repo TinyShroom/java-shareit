@@ -13,9 +13,7 @@ public enum ErrorMessages {
     STATUS_APPROVED("status already approved"),
     OWNER_UPDATE("only owner can update item"),
     OWNER_DELETE("only owner can delete item"),
-    REVIEW_WITHOUT_BOOKING("you cannot create a review without booking"),
-    UNKNOWN_STATE("Unknown state: %s"),
-    VALIDATION_EXCEPTION("Validation exception");
+    REVIEW_WITHOUT_BOOKING("you cannot create a review without booking");
 
     private final String message;
 
